@@ -23,6 +23,12 @@ DEFINES += QT_DEPRECATED_WARNINGS
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 
+# 源码方式使用需要设置为静态库
+DEFINES +=   QUAZIP_STATIC
+include($$PWD/quazip/3rdparty/zlib.pri)
+include($$PWD/quazip/quazip.pri)
+include($$PWD/quazip/zipop/zipop.pri)
+
 SOURCES += \
         main.cpp \
         knothubcore.cpp \
