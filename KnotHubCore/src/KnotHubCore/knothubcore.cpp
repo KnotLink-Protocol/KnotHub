@@ -9,7 +9,7 @@ KnotHubCore::KnotHubCore(QWidget *parent) :
 {
     ui->setupUi(this);
     qDebug() << "nh";
-    NodeManager nodemgr;
+    NodeManager *nodemgr=new NodeManager;
 }
 
 KnotHubCore::~KnotHubCore()

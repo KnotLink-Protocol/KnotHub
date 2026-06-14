@@ -29,6 +29,8 @@ include($$PWD/quazip/3rdparty/zlib.pri)
 include($$PWD/quazip/quazip.pri)
 include($$PWD/quazip/zipop/zipop.pri)
 
+include($$PWD/KnotLinkLib/KnotLinkLib.pri)
+
 SOURCES += \
         main.cpp \
         knothubcore.cpp \

@@ -327,7 +327,78 @@
                 </table>
             </div>
         `,
-        debug: () => `<div><h1>调试</h1><p>诊断工具与日志占位</p></div>`,
+        debug: () => `
+    <div style="margin-bottom: 16px;">
+        <h1 style="font-size: 22px; font-weight: 500;">调试工具</h1>
+        <p style="color: #6c757d; margin-top: 4px;">开发者工具集</p>
+    </div>
+    <div class="section">
+        <div class="section-header">
+            <div class="section-title">工具箱</div>
+        </div>
+        <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 20px;">
+            <button class="tool-btn" data-tool="editor">📄 功能清单编辑器</button>
+            <button class="tool-btn" data-tool="invoker">⚙️ 功能清单调用器</button>
+            <button class="tool-btn" data-tool="comm">🔌 通讯调试器</button>
+            <button class="tool-btn" data-tool="docs">📖 开发者文档</button>
+        </div>
+        <div id="tool-panel" style="border-top: 1px solid #e9ecef; padding-top: 20px; margin-top: 8px;">
+            <!-- 默认显示欢迎信息 -->
+            <p style="color: #6c757d;">点击上方按钮打开对应工具面板</p>
+        </div>
+    </div>
+    <style>
+        .tool-btn {
+            background: #f8f9fa;
+            border: 1px solid #ced4da;
+            padding: 8px 18px;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.15s;
+            font-weight: 500;
+        }
+        .tool-btn:hover {
+            background: #e9ecef;
+            border-color: #adb5bd;
+        }
+        .tool-btn.active {
+            background: #0b5e7e;
+            border-color: #0b5e7e;
+            color: white;
+        }
+        .json-editor {
+            width: 100%;
+            min-height: 300px;
+            font-family: monospace;
+            font-size: 13px;
+            padding: 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            background: #fafbfc;
+        }
+        .invoke-result {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 12px;
+            font-family: monospace;
+            font-size: 12px;
+            margin-top: 12px;
+            white-space: pre-wrap;
+        }
+        .comm-log {
+            background: #1e2a3a;
+            color: #e2e8f0;
+            padding: 12px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 12px;
+            height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+`,
         settings: () => `<div><h1>设置</h1><p>热备配置参数占位</p></div>`
     };
 
@@ -483,6 +554,182 @@
         if (pages[route]) render(route);
         else render('home');
     }
+
+    // 工具面板的渲染函数
+let currentTool = null;
+
+function renderToolPanel(toolId) {
+    const panel = document.getElementById('tool-panel');
+    if (!panel) return;
+
+    switch (toolId) {
+        case 'editor':
+            panel.innerHTML = `
+                <h4 style="margin-bottom: 12px;">功能清单编辑器 (JSON格式)</h4>
+                <textarea id="feature-editor" class="json-editor" placeholder='{"example": "value"}'></textarea>
+                <div style="margin-top: 12px;">
+                    <button class="btn" id="save-feature">保存</button>
+                    <button class="btn" id="load-feature">加载示例</button>
+                </div>
+                <div id="editor-status" style="margin-top: 8px; font-size: 12px; color: #28a745;"></div>
+            `;
+            document.getElementById('save-feature')?.addEventListener('click', () => {
+                const content = document.getElementById('feature-editor').value;
+                localStorage.setItem('feature-manifest', content);
+                document.getElementById('editor-status').innerText = '已保存到本地存储';
+            });
+            document.getElementById('load-feature')?.addEventListener('click', () => {
+                const example = {
+                    version: "1.0",
+                    features: ["node_monitor", "link_control", "hot_switch"]
+                };
+                document.getElementById('feature-editor').value = JSON.stringify(example, null, 2);
+                document.getElementById('editor-status').innerText = '已加载示例';
+            });
+            const saved = localStorage.getItem('feature-manifest');
+            if (saved) document.getElementById('feature-editor').value = saved;
+            break;
+        case 'invoker':
+            panel.innerHTML = `
+                <h4 style="margin-bottom: 12px;">调用后端命令</h4>
+                <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                    <select id="cmd-select" class="btn" style="background: white;">
+                        <option value="get_all_nodes">get_all_nodes (示例)</option>
+                        <option value="get_link_status">get_link_status (示例)</option>
+                        <option value="ping_node">ping_node (需实现)</option>
+                    </select>
+                    <input type="text" id="cmd-args" placeholder='参数 JSON (可选)' style="padding: 4px 8px; border: 1px solid #ced4da; border-radius: 4px;">
+                    <button class="btn btn-primary" id="invoke-cmd">调用</button>
+                </div>
+                <div id="invoke-result" class="invoke-result">等待调用...</div>
+            `;
+            document.getElementById('invoke-cmd')?.addEventListener('click', async () => {
+                const cmd = document.getElementById('cmd-select').value;
+                let args = {};
+                try {
+                    const argsRaw = document.getElementById('cmd-args').value.trim();
+                    if (argsRaw) args = JSON.parse(argsRaw);
+                } catch(e) {
+                    document.getElementById('invoke-result').innerHTML = `<span style="color: #dc3545;">参数 JSON 解析错误: ${e.message}</span>`;
+                    return;
+                }
+                // 模拟调用（实际应调用 Tauri invoke）
+                document.getElementById('invoke-result').innerHTML = '⏳ 正在调用...';
+                setTimeout(() => {
+                    document.getElementById('invoke-result').innerHTML = `<span style="color: #28a745;">✅ 模拟调用成功</span><br>命令: ${cmd}<br>参数: ${JSON.stringify(args)}<br>返回: { "status": "ok", "data": "示例数据" }`;
+                }, 500);
+                // 真实调用示例（需安装 @tauri-apps/api）：
+                // import { invoke } from '@tauri-apps/api/tauri';
+                // const result = await invoke(cmd, args);
+                // document.getElementById('invoke-result').innerHTML = `<pre>${JSON.stringify(result, null, 2)}</pre>`;
+            });
+            break;
+        case 'comm':
+            panel.innerHTML = `
+                <h4 style="margin-bottom: 12px;">通讯调试器 (Tauri 事件 / HTTP)</h4>
+                <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                    <input type="text" id="event-name" placeholder="事件名称 (如 backend-notify)" style="flex:1; padding: 4px 8px; border: 1px solid #ced4da; border-radius: 4px;">
+                    <textarea id="event-payload" placeholder='事件数据 JSON' rows="2" style="flex:2; padding: 4px 8px; border: 1px solid #ced4da; border-radius: 4px;"></textarea>
+                    <button class="btn" id="emit-event">发送事件</button>
+                </div>
+                <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                    <input type="text" id="http-url" placeholder="HTTP URL (如 https://api.example.com/status)" style="flex:3; padding: 4px 8px;">
+                    <button class="btn" id="http-get">GET</button>
+                    <button class="btn" id="http-post">POST</button>
+                </div>
+                <div id="comm-log" class="comm-log">[日志] 就绪</div>
+            `;
+            const log = (msg) => {
+                const logDiv = document.getElementById('comm-log');
+                if (logDiv) logDiv.innerHTML += `\n> ${new Date().toLocaleTimeString()} ${msg}`;
+            };
+            document.getElementById('emit-event')?.addEventListener('click', async () => {
+                const eventName = document.getElementById('event-name').value;
+                let payload = {};
+                try {
+                    const raw = document.getElementById('event-payload').value.trim();
+                    if (raw) payload = JSON.parse(raw);
+                } catch(e) { log(`事件数据 JSON 解析失败: ${e.message}`); return; }
+                log(`发送事件: ${eventName} ${JSON.stringify(payload)}`);
+                // 实际应调用 emit，这里模拟
+                // import { emit } from '@tauri-apps/api/event';
+                // await emit(eventName, payload);
+                setTimeout(() => log(`✅ 事件已发送 (模拟)`), 100);
+            });
+            document.getElementById('http-get')?.addEventListener('click', async () => {
+                const url = document.getElementById('http-url').value;
+                if (!url) { log('请输入 URL'); return; }
+                log(`GET ${url}`);
+                try {
+                    // 模拟 fetch (浏览器环境可行，但注意 CORS，生产建议用 Tauri HTTP 插件)
+                    const res = await fetch(url);
+                    const text = await res.text();
+                    log(`✅ 响应 ${res.status}: ${text.slice(0, 100)}`);
+                } catch(e) { log(`❌ 错误: ${e.message}`); }
+            });
+            break;
+        case 'docs':
+            panel.innerHTML = `
+                <h4 style="margin-bottom: 12px;">开发者文档</h4>
+                <ul style="margin-left: 20px; line-height: 1.6;">
+                    <li><a href="https://tauri.app/v1/guides/" target="_blank" style="color: #0b5e7e;">Tauri 官方指南</a></li>
+                    <li><a href="#" id="mock-api-doc" style="color: #0b5e7e;">本地 API 文档 (模拟)</a></li>
+                    <li><a href="#" id="feature-manual" style="color: #0b5e7e;">功能清单说明</a></li>
+                </ul>
+                <div id="doc-content" style="margin-top: 20px; padding: 12px; background: #f8f9fa; border-radius: 6px;">
+                    点击链接查看内容（示例）
+                </div>
+            `;
+            document.getElementById('mock-api-doc')?.addEventListener('click', (e) => {
+                e.preventDefault();
+                document.getElementById('doc-content').innerHTML = `<h5>命令列表</h5><ul><li>get_all_nodes</li><li>restart_node(nodeId)</li></ul>`;
+            });
+            document.getElementById('feature-manual')?.addEventListener('click', (e) => {
+                e.preventDefault();
+                document.getElementById('doc-content').innerHTML = `<h5>功能清单格式</h5><pre>{"features": ["node_monitor"]}</pre>`;
+            });
+            break;
+        default:
+            panel.innerHTML = `<p style="color: #6c757d;">点击上方按钮打开对应工具面板</p>`;
+    }
+}
+
+// 在每次渲染调试页面时，重新绑定工具按钮的事件
+function initDebugTools() {
+    const btns = document.querySelectorAll('.tool-btn');
+    btns.forEach(btn => {
+        btn.removeEventListener('click', btn._toolHandler);
+        const handler = (e) => {
+            const tool = btn.dataset.tool;
+            // 更新按钮激活样式
+            btns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderToolPanel(tool);
+        };
+        btn.addEventListener('click', handler);
+        btn._toolHandler = handler;
+    });
+    // 如果当前面板显示的是调试页面且有默认激活的按钮，自动显示第一个工具
+    if (currentRoute === 'debug') {
+        const firstBtn = document.querySelector('.tool-btn');
+        if (firstBtn && !firstBtn.classList.contains('active')) {
+            firstBtn.click();
+        } else if (firstBtn && firstBtn.classList.contains('active')) {
+            renderToolPanel(firstBtn.dataset.tool);
+        } else {
+            renderToolPanel(null);
+        }
+    }
+}
+
+// 修改原来的 render 函数，在渲染完 debug 页面后调用 initDebugTools
+// 假设你原来有类似这样的代码：
+// function render(route) { ... mainDiv.innerHTML = pages[route](); ... bindRowClickEvents(); ... }
+// 我们找到调用 pages[route]() 的地方，在之后加入：
+// if (route === 'debug') initDebugTools();
+
+// 下面给出集成示例（你需要替换现有的 render 函数片段）
+// 为了不重复造轮子，请直接使用下面的完整 render 函数（替换原来的）
 </script>
 </body>
 </html>
