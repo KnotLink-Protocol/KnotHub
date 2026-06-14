@@ -1,5 +1,7 @@
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import { ThemeProvider } from './context/ThemeContext';
+import { useTheme } from './context/ThemeContext';
 import './App.css';
 
 // 页面组件
@@ -12,24 +14,27 @@ import Settings from './pages/Settings';
 
 function App() {
   return (
-    <BrowserRouter>
-      <div className="app">
-        <NavBar />
-        <MainContent />
-        <PreviewBar />
-      </div>
-    </BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
+        <div className="app">
+          <NavBar />
+          <MainContent />
+          <PreviewBar />
+        </div>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }
 
 function NavBar() {
   const location = useLocation();
+  const { theme, toggleTheme } = useTheme();
   const navItems = [
     { path: '/', label: '主页' },
     { path: '/nodes', label: '节点列表' },
     { path: '/interconnect', label: '互联配方' },
     { path: '/service', label: '服务状态' },
-    { path: '/debug', label: '调试' },
+    { path: '/debug', label: '开发工具' },
     { path: '/settings', label: '设置' },
   ];
   return (
@@ -46,7 +51,12 @@ function NavBar() {
           </Link>
         ))}
       </nav>
-      <div className="footer-note">双机热备 · 实时同步</div>
+      <div className="footer-note">
+        双机热备 · 实时同步
+        <button onClick={toggleTheme} style={{ marginTop: '12px', width: '100%' }} className="btn btn-sm">
+          {theme === 'light' ? '🌙 夜间模式' : '☀️ 日间模式'}
+        </button>
+      </div>
     </div>
   );
 }
