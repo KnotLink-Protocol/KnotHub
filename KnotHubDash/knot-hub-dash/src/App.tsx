@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-do
 import { useEffect, useState } from 'react';
 import { ThemeProvider } from './context/ThemeContext';
 import { useTheme } from './context/ThemeContext';
+import ThemeToggle from './components/ThemeToggle';
 import './App.css';
 
 // 页面组件
@@ -28,7 +29,6 @@ function App() {
 
 function NavBar() {
   const location = useLocation();
-  const { theme, toggleTheme } = useTheme();
   const navItems = [
     { path: '/', label: '主页' },
     { path: '/nodes', label: '节点列表' },
@@ -53,9 +53,7 @@ function NavBar() {
       </nav>
       <div className="footer-note">
         双机热备 · 实时同步
-        <button onClick={toggleTheme} style={{ marginTop: '12px', width: '100%' }} className="btn btn-sm">
-          {theme === 'light' ? '🌙 夜间模式' : '☀️ 日间模式'}
-        </button>
+        <ThemeToggle />
       </div>
     </div>
   );
