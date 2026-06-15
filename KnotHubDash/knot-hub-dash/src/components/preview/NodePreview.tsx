@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 
 interface NodeDetail {
   pluginName: string;
@@ -24,7 +25,7 @@ const NodePreview: React.FC<NodePreviewProps> = ({ nodeId }) => {
     try {
       setLoading(true);
       // TODO: 替换为真实的后端调用
-      // const data = await invoke<NodeDetail>('get_node_detail', { nodeId });
+      const data = await invoke<NodeDetail>('get_node_detail', { nodeId });
       const mockData: NodeDetail = {
         pluginName: 'KnotHub 核心插件',
         appId: '0x0000A001',
@@ -34,7 +35,7 @@ const NodePreview: React.FC<NodePreviewProps> = ({ nodeId }) => {
         status: '运行中',
         autoStart: true,
       };
-      setDetail(mockData);
+      setDetail(data);
       setError(null);
     } catch (err: any) {
       setError(err.message || '获取详情失败');
@@ -48,7 +49,7 @@ const NodePreview: React.FC<NodePreviewProps> = ({ nodeId }) => {
     try {
       setUpdating(true);
       // TODO: 调用后端命令保存
-      // await invoke('set_node_autostart', { nodeId, autoStart: checked });
+      await invoke('set_node_autostart', { nodeId, autoStart: checked });
       setDetail({ ...detail, autoStart: checked });
     } catch (err: any) {
       alert(`设置失败: ${err.message}`);

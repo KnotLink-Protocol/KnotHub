@@ -1,8 +1,10 @@
 // src-tauri/src/main.rs
+mod nodes;  // 导入节点模块（需在 src-tauri/src/nodes.rs 中实现）
+
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{TrayIconBuilder, TrayIconEvent},
-    Manager, Runtime,
+    Manager, Runtime, WindowEvent,
 };
 
 pub fn create_tray<R: Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<()> {
@@ -12,10 +14,24 @@ pub fn create_tray<R: Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<()> {
     let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
 
     // 构建并生成托盘图标
-    let _ = TrayIconBuilder::with_id("tray")
-        .icon(app.default_window_icon().unwrap().clone()) // 使用应用图标
+    TrayIconBuilder::with_id("tray")
+        .icon(app.default_window_icon().unwrap().clone())
         .menu(&menu)
         .menu_on_left_click(false) // 禁用左键弹出菜单
+        .on_tray_icon_event(|tray, event| {
+            if let TrayIconEvent::Click { .. } = event {
+                // 左键单击托盘图标时显示/隐藏窗口
+                let app_handle = tray.app_handle();
+                if let Some(window) = app_handle.get_webview_window("main") {
+                    if window.is_visible().unwrap_or(false) {
+                        let _ = window.hide();
+                    } else {
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                    }
+                }
+            }
+        })
         .on_menu_event(move |app, event| match event.id.as_ref() {
             "show" => {
                 if let Some(window) = app.get_webview_window("main") {
@@ -28,17 +44,31 @@ pub fn create_tray<R: Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<()> {
             }
             _ => {}
         })
-        .build(app);
-
+        .build(app)?;
     Ok(())
 }
 
 fn main() {
     tauri::Builder::default()
         .setup(|app| {
+            // 创建托盘
             create_tray(app.handle())?;
+
+            // 拦截窗口关闭事件：隐藏窗口而非退出
+            let window = app.get_webview_window("main").unwrap();
+            let window_clone = window.clone();
+            window.on_window_event(move |event| {
+                if let WindowEvent::CloseRequested { .. } = event {
+                    let _ = window_clone.hide();
+                }
+            });
+
             Ok(())
         })
+        .invoke_handler(tauri::generate_handler![
+            nodes::get_node_detail,
+            nodes::set_node_autostart,
+        ])
         .run(tauri::generate_context!())
-        .expect("运行应用时出错");
+        .expect("error while running tauri application");
 }
