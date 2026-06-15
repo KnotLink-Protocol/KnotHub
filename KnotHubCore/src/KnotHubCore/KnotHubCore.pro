@@ -36,13 +36,15 @@ SOURCES += \
         knothubcore.cpp \
     NodeManager/nodemanager.cpp \
     NodeManager/nodeloader.cpp \
-    NodeManager/nodeinstaller.cpp
+    NodeManager/nodeinstaller.cpp \
+    NodeManager/plugininfo.cpp
 
 HEADERS += \
         knothubcore.h \
     NodeManager/nodemanager.h \
     NodeManager/nodeloader.h \
-    NodeManager/nodeinstaller.h
+    NodeManager/nodeinstaller.h \
+    NodeManager/plugininfo.h
 
 FORMS += \
         knothubcore.ui

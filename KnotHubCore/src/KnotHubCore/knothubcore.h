@@ -17,6 +17,7 @@ public:
     ~KnotHubCore();
 
 private:
+    PluginManager *m_pluginManager;
     Ui::KnotHubCore *ui;
 };
 

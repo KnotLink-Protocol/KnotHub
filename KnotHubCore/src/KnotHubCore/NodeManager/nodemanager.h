@@ -1,72 +1,87 @@
-#ifndef NODEMANAGER_H
-#define NODEMANAGER_H
+#ifndef PLUGINMANAGER_H
+#define PLUGINMANAGER_H
 
 #include <QObject>
 #include <QMap>
-#include <QString>
 #include <QStringList>
 #include <QProcess>
+#include <KnotLinkLib>
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QJsonDocument>
+#include <QByteArray>
+#include <QFile>
+#include <QDir>
+
+
+#include "plugininfo.h"
 
 class NodeLoader;
 
-class NodeManager : public QObject
+class PluginManager : public QObject
 {
     Q_OBJECT
 public:
-    explicit NodeManager(QObject *parent = nullptr);
+    explicit PluginManager(QObject *parent = nullptr);
 
-    // 设置工作目录（默认使用应用程序当前目录）
-    void setWorkingDirectory(const QString &path);
-    QString workingDirectory() const { return m_workingDirectory; }
+    // 设置插件根目录（默认为应用程序所在目录下的 "Plugins"）
+    void setPluginsRoot(const QString &path);
+    QString pluginsRoot() const { return m_pluginsRoot; }
 
-    // 刷新节点列表：扫描 Nodes 文件夹下的所有 .exe 文件
-    // 返回新增的节点名列表
-    QStringList refreshNodeList();
+    // 扫描根目录下的所有子文件夹，读取 manifest，更新插件列表
+    // 返回新增的插件名列表
+    QStringList refreshPluginList();
 
-    // 启动特定节点（节点名为 exe 文件名，不含路径）
-    bool startNode(const QString &nodeName, const QStringList &arguments = QStringList());
-    // 停止特定节点
-    bool stopNode(const QString &nodeName);
-    // 重启特定节点（先 stop 再 start，使用相同参数？需要保存参数，简化版：stop 后再 start 无参数）
-    bool restartNode(const QString &nodeName);
+    // 根据插件名启动插件
+    bool startPlugin(const QString &pluginName, const QStringList &args = QStringList());
+    // 根据 appId 启动插件
+    bool startPluginByAppId(const QString &appId, const QStringList &args = QStringList());
 
-    // 启动所有节点
-    void startAllNodes();
-    // 停止所有节点
-    void stopAllNodes();
-    // 重启所有节点
-    void restartAllNodes();
+    bool stopPlugin(const QString &pluginName);
+    bool stopPluginByAppId(const QString &appId);
 
-    // 获取所有节点名称列表（基于当前扫描结果）
-    QStringList nodeNames() const { return m_nodeLoaders.keys(); }
+    bool restartPlugin(const QString &pluginName);
 
-    // 查询节点是否正在运行
-    bool isNodeRunning(const QString &nodeName) const;
+    void startAllPlugins();
+    void stopAllPlugins();
+    void startAutoStartPlugins();   // 启动所有 auto_start 为 true 的插件
 
-    // 获取节点对应的 NodeLoader 指针（可为 nullptr）
-    NodeLoader* nodeLoader(const QString &nodeName) const;
+    QStringList pluginNames() const { return m_pluginInfos.keys(); }
+    PluginInfo pluginInfo(const QString &pluginName) const;
+    bool isPluginRunning(const QString &pluginName) const;
+
+    QByteArray exportPluginListToJson();
 
 signals:
-    // 当节点列表发生变化时（刷新后新增或移除）发出
-    void nodeListChanged(const QStringList &currentNodes);
-
-    // 节点启动/停止状态变化信号
-    void nodeStarted(const QString &nodeName);
-    void nodeStopped(const QString &nodeName);
-    void nodeError(const QString &nodeName, const QString &errorString);
+    void pluginListChanged(const QStringList &currentPlugins);
+    void pluginStarted(const QString &pluginName);
+    void pluginStopped(const QString &pluginName);
+    void pluginError(const QString &pluginName, const QString &errorString);
 
 private slots:
-    void onNodeFinished(const QString &nodeName, int exitCode, QProcess::ExitStatus exitStatus);
-    void onNodeError(const QString &nodeName, QProcess::ProcessError error, const QString &errorString);
+    void onPluginProcessFinished(const QString &pluginName, int exitCode, QProcess::ExitStatus exitStatus);
+    void onPluginProcessError(const QString &pluginName, QProcess::ProcessError error, const QString &errorString);
+
+    // KnotLink支持
+    void onKnotLinkRecieveData(const QString &data,QString questionID);
 
 private:
-    // 构建 exe 的完整路径
-    QString exePath(const QString &nodeName) const;
-    // 从文件路径提取节点名（去掉路径和 .exe 后缀）
-    static QString nodeNameFromFilePath(const QString &filePath);
+    QString m_pluginsRoot;
+    QMap<QString, PluginInfo> m_pluginInfos;        // pluginName -> PluginInfo
+    QMap<QString, NodeLoader*> m_pluginLoaders;     // pluginName -> NodeLoader*
 
-    QString m_workingDirectory;                 // 工作目录
-    QMap<QString, NodeLoader*> m_nodeLoaders;   // 节点名 -> NodeLoader 指针（生命周期由 NodeManager 管理）
+    // 内部辅助
+    NodeLoader* getOrCreateLoader(const QString &pluginName);
+    void removeLoader(const QString &pluginName);
+
+    // KnotLink支持
+    OpenSocketResponser *m_openSocketResponser;
+    KLKVMap operationInfo;
+
+    bool updatePluginConfig(const QString &pluginName, const QString &autostart);
+    bool savePluginManifest(const QString &pluginName);
+    bool savePluginManifest(const PluginInfo &info);
+
 };
 
-#endif // NODEMANAGER_H
+#endif // PLUGINMANAGER_H

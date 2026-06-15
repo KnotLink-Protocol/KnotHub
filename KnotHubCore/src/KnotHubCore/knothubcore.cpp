@@ -9,7 +9,14 @@ KnotHubCore::KnotHubCore(QWidget *parent) :
 {
     ui->setupUi(this);
     qDebug() << "nh";
-    NodeManager *nodemgr=new NodeManager;
+    // 构造函数中
+    m_pluginManager = new PluginManager(this);
+    m_pluginManager->setPluginsRoot(QCoreApplication::applicationDirPath() + "/Plugins");
+    m_pluginManager->refreshPluginList();
+//    m_pluginManager->startAutoStartPlugins();
+
+    KLKVMap map;
+    map.deserialize("key1=value1;key2=value2");
 }
 
 KnotHubCore::~KnotHubCore()

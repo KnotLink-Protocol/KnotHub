@@ -1,0 +1,8 @@
+{
+    "exe_path":"/testplugin.exe",
+    "plugin_name":"TestPlugin",
+    "app_id":"0x00000001",
+    "author":"HXH",
+    "description":"this is a plugin with limitless ablility",
+    "auto_start":"true"
+}

@@ -1,0 +1,252 @@
+/* FeatureEditor.css */
+:root {
+  --primary-color: #4a6fa5;
+  --secondary-color: #3a5a8c;
+  --background-color: #f5f7fa;
+  --card-color: #ffffff;
+  --border-color: #d1d9e6;
+  --text-color: #333;
+  --success-color: #28a745;
+  --danger-color: #dc3545;
+  --warning-color: #ffc107;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  line-height: 1.6;
+  color: var(--text-color);
+  background-color: var(--background-color);
+  padding: 20px;
+}
+
+.feature-editor-container {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.editor-grid {
+  display: grid;
+  grid-template-columns: 300px 1fr 400px;
+  gap: 20px;
+}
+
+header {
+  text-align: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+h1 {
+  color: var(--primary-color);
+  margin-bottom: 10px;
+}
+
+.panel {
+  background-color: var(--card-color);
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  margin-bottom: 20px;
+  overflow-y: auto;
+  max-height: calc(100vh - 120px);
+}
+
+.function-list {
+  overflow-y: auto;
+  max-height: 600px;
+}
+
+.function-item {
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.function-item:hover {
+  background-color: #f0f8ff;
+  border-color: var(--primary-color);
+}
+
+.function-item.active {
+  background-color: #e3f2fd;
+  border-color: var(--primary-color);
+}
+
+.function-item h3 {
+  margin-bottom: 5px;
+  color: var(--primary-color);
+}
+
+.function-item p {
+  font-size: 0.9em;
+  color: #666;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 600;
+}
+
+input, select, textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 1em;
+}
+
+textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.btn {
+  padding: 8px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1em;
+  transition: background-color 0.2s;
+}
+
+.btn-primary {
+  background-color: var(--primary-color);
+  color: white;
+}
+.btn-primary:hover {
+  background-color: var(--secondary-color);
+}
+.btn-success {
+  background-color: var(--success-color);
+  color: white;
+}
+.btn-danger {
+  background-color: var(--danger-color);
+  color: white;
+}
+.btn-warning {
+  background-color: var(--warning-color);
+  color: #333;
+}
+.btn-sm {
+  padding: 5px 10px;
+  font-size: 0.85em;
+}
+
+.args-section, .returns-section {
+  margin-top: 20px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 15px;
+}
+
+.args-list, .returns-list {
+  margin-top: 10px;
+}
+
+.arg-item, .return-item {
+  background-color: #f9f9f9;
+  padding: 10px;
+  border-radius: 4px;
+  margin-bottom: 10px;
+  border-left: 3px solid var(--primary-color);
+}
+
+.arg-header, .return-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+.json-preview {
+  background-color: #f8f8f8;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 15px;
+  font-family: monospace;
+  white-space: pre-wrap;
+  max-height: 500px;
+  overflow-y: auto;
+  font-size: 12px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 30px;
+  color: #888;
+}
+
+.function-type {
+  font-size: 0.8em;
+  color: #888;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+}
+
+.options-list {
+  margin-top: 10px;
+}
+
+.option-item {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 8px;
+  align-items: center;
+}
+.option-item input {
+  flex: 1;
+}
+
+.preview-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.import-section {
+  margin-top: 20px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 15px;
+}
+
+.app-info {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+}
+
+.option-actions {
+  display: flex;
+  gap: 5px;
+}
+
+@media (max-width: 1200px) {
+  .editor-grid {
+    grid-template-columns: 1fr;
+  }
+  .panel {
+    max-height: none;
+  }
+}

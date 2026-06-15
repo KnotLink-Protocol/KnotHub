@@ -7,11 +7,13 @@ SOURCES += \
         $$PWD/opensocketresponser.cpp \
         $$PWD/signalsender.cpp \
         $$PWD/signalsubscriber.cpp  \
-        $$PWD/tcpclient.cpp
+        $$PWD/tcpclient.cpp \
+    $$PWD/kludf.cpp
 
 HEADERS += \
         $$PWD/opensocketquerier.h \
         $$PWD/opensocketresponser.h \
         $$PWD/signalsender.h \
         $$PWD/signalsubscriber.h  \
-        $$PWD/tcpclient.h
+        $$PWD/tcpclient.h \
+    $$PWD/kludf.h

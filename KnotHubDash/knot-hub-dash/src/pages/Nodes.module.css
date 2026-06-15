@@ -27,6 +27,12 @@
   font-size: 12px;
 }
 
+.topRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .appId {
   color: var(--text-secondary);
   font-family: monospace;
@@ -75,5 +81,37 @@
 
 .author,
 .version {
-  /* 可根据需要单独定义 */
+  /* 可保留默认样式 */
+}
+
+/* 通用图标按钮样式（去掉边框和背景，仅保留图标） */
+.iconBtn {
+  padding: 4px;
+  margin: 0;
+  line-height: 1;
+}
+
+/* 图标图片尺寸 */
+.actionIcon {
+  width: 36px;
+  height: 36px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.deleteSvg {
+  width: 14px;
+  height: 14px;
+}
+
+/* 删除按钮特殊调整（如果需要更紧凑） */
+.deleteIcon {
+  padding: 2px;
+}
+
+/* 确保危险按钮（删除）的文字颜色不会被覆盖，因为背景透明了，所以需要保留文字颜色用于图标颜色？ */
+/* 实际上图片有自己的颜色，不需要继承文字颜色，所以可以完全透明背景 */
+
+.noBorder {
+  border: none;
 }
