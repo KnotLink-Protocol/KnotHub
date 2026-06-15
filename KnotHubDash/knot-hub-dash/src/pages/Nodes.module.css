@@ -1,0 +1,79 @@
+.nodesList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.nodeCard {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+  overflow: hidden;
+}
+
+.nodeCard:hover {
+  background: var(--bg-hover);
+}
+
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  background: var(--bg-header);
+  border-bottom: 1px solid var(--border-light);
+  font-size: 12px;
+}
+
+.appId {
+  color: var(--text-secondary);
+  font-family: monospace;
+}
+
+.middle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  gap: 16px;
+}
+
+.infoLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.icon {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.name {
+  font-weight: 500;
+  font-size: 16px;
+  color: var(--text-primary);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 16px;
+  background: var(--bg-header);
+  border-top: 1px solid var(--border-light);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.author,
+.version {
+  /* 可根据需要单独定义 */
+}
