@@ -1,34 +1,94 @@
-// src/components/preview/NodePreview.tsx
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+
+interface NodeDetail {
+  pluginName: string;
+  appId: string;
+  author: string;
+  version: string;
+  description: string;
+  status: string;
+  autoStart: boolean;
+}
 
 interface NodePreviewProps {
   nodeId: string;
 }
 
 const NodePreview: React.FC<NodePreviewProps> = ({ nodeId }) => {
-  // 模拟数据，后续可改为 invoke 获取
-  const details: Record<string, any> = {
-    'node-01': { ip: '10.2.10.101', cpu: '12%', mem: '3.2/8 GB', role: '主节点', lastSeen: '2025-03-21 14:32:05' },
-    'node-02': { ip: '10.2.10.102', cpu: '34%', mem: '5.1/8 GB', role: '热备从机', lastSeen: '2025-03-21 14:32:01' },
-    'node-03': { ip: '10.2.10.103', cpu: '0%', mem: 'N/A', role: '待命', lastSeen: '2025-03-21 10:15:22' },
-  };
-  const info = details[nodeId] || { ip: '--', cpu: '--', mem: '--', role: '--', lastSeen: '--' };
+  const [detail, setDetail] = useState<NodeDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [updating, setUpdating] = useState(false);
 
-  const handleRestart = () => alert(`[演示] 重启节点 ${nodeId}`);
-  const handleFailover = () => alert(`[演示] 热备切换 ${nodeId}`);
+  const fetchDetail = async () => {
+    try {
+      setLoading(true);
+      // TODO: 替换为真实的后端调用
+      // const data = await invoke<NodeDetail>('get_node_detail', { nodeId });
+      const mockData: NodeDetail = {
+        pluginName: 'KnotHub 核心插件',
+        appId: '0x0000A001',
+        author: '课堂助手团队',
+        version: 'v1.2.0',
+        description: '管理 KnotHub 服务中枢的核心节点',
+        status: '运行中',
+        autoStart: true,
+      };
+      setDetail(mockData);
+      setError(null);
+    } catch (err: any) {
+      setError(err.message || '获取详情失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAutoStartChange = async (checked: boolean) => {
+    if (!detail) return;
+    try {
+      setUpdating(true);
+      // TODO: 调用后端命令保存
+      // await invoke('set_node_autostart', { nodeId, autoStart: checked });
+      setDetail({ ...detail, autoStart: checked });
+    } catch (err: any) {
+      alert(`设置失败: ${err.message}`);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDetail();
+  }, [nodeId]);
+
+  if (loading) return <div className="preview-loading">加载节点信息中...</div>;
+  if (error) return <div className="preview-error">错误: {error}</div>;
+  if (!detail) return null;
 
   return (
-    <>
-      <div className="preview-field"><strong>节点ID</strong> {nodeId}</div>
-      <div className="preview-field"><strong>IP地址</strong> {info.ip}</div>
-      <div className="preview-field"><strong>角色</strong> {info.role}</div>
-      <div className="preview-field"><strong>CPU使用</strong> {info.cpu}</div>
-      <div className="preview-field"><strong>内存使用</strong> {info.mem}</div>
-      <div className="preview-field"><strong>最后心跳</strong> {info.lastSeen}</div>
-      <hr />
-      <button className="btn btn-sm" onClick={handleRestart}>重启节点</button>
-      <button className="btn btn-sm" onClick={handleFailover}>热备切换</button>
-    </>
+    <div className="node-preview">
+      <div className="preview-field"><strong>插件名称</strong> {detail.pluginName}</div>
+      <div className="preview-field"><strong>应用ID</strong> {detail.appId}</div>
+      <div className="preview-field"><strong>作者</strong> {detail.author}</div>
+      <div className="preview-field"><strong>版本</strong> {detail.version}</div>
+      <div className="preview-field"><strong>描述</strong> {detail.description}</div>
+      <div className="preview-field"><strong>状态</strong> {detail.status}</div>
+      <div className="preview-field">
+        <strong>自启动</strong>
+        <div className="switch-wrapper" style={{ display: 'inline-block', marginLeft: '8px', verticalAlign: 'middle' }}>
+          <label className="switch">
+            <input
+              type="checkbox"
+              checked={detail.autoStart}
+              onChange={(e) => handleAutoStartChange(e.target.checked)}
+              disabled={updating}
+            />
+            <span className="slider round"></span>
+          </label>
+          {updating && <span style={{ marginLeft: '8px', fontSize: '12px', color: 'var(--text-secondary)' }}>保存中...</span>}
+        </div>
+      </div>
+    </div>
   );
 };
 
