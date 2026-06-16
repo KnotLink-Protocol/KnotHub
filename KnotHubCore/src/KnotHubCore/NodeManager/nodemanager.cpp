@@ -287,6 +287,8 @@ QByteArray PluginManager::exportPluginListToJson()
         obj["plugin_name"] = info.pluginName;
         obj["author"] = info.author;
         obj["app_id"] = info.appId;
+        obj["version"] = info.version;
+        obj["status"] = isPluginRunning(info.pluginName)?"运行中":"停止";
         pluginsArray.append(obj);
     }
     QJsonObject root;

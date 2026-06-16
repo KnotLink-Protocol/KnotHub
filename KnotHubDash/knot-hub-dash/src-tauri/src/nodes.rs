@@ -75,7 +75,7 @@ pub async fn get_node_detail(node_id: String) -> Result<NodeDetail, String> {
 
     let mut req = HashMap::new();
     req.insert("cmd".to_string(), "get_detail".to_string());
-    req.insert("plugin_name".to_string(), "TestPlugin".to_string());
+    req.insert("plugin_name".to_string(), node_id);
     let request = KvMapExt::serialize(&req);
 
     let response = querier.query_l(request).await.map_err(|e| e.to_string())?;
@@ -101,31 +101,62 @@ pub async fn set_node_autostart(node_id: String, auto_start: bool) -> Result<(),
     Ok(())
 }
 
+
+// ---------- 前端数据结构 ----------
 #[derive(Serialize)]
 pub struct NodeSummary {
     pub id: String,
     pub app_id: String,
     pub role: String,
-    pub status: String,
+    pub status: String,     // 直接使用字符串 "运行中" 或 "停止"
     pub hot_role: String,
     pub author: String,
     pub version: String,
-    // status_class 由前端根据 status 动态计算，后端可不返回
+}
+// ---------- 解析服务端 JSON 的中间结构 ----------
+#[derive(Debug, Deserialize)]
+struct RawPlugin {
+    app_id: String,
+    author: String,
+    plugin_name: String,
+    status: String,         // 字符串类型
+    version: String,
 }
 
-#[tauri::command]
-pub fn get_nodes_list() -> Vec<NodeSummary> {
-    // 模拟数据（可从文件或数据库读取）
-    vec![
-        NodeSummary {
-            id: "node-01".to_string(),
-            app_id: "com.example.node01".to_string(),
-            role: "主控".to_string(),
-            status: "运行中".to_string(),
-            hot_role: "主节点".to_string(),
-            author: "课堂助手团队".to_string(),
-            version: "v1.2.0".to_string(),
-        },
-        // ... 其他节点
-    ]
+#[derive(Debug, Deserialize)]
+struct RawPluginsResponse {
+    plugins: Vec<RawPlugin>,
 }
+
+// ---------- 命令：获取节点列表 ----------
+#[tauri::command]
+pub async fn get_nodes_list() -> Result<Vec<NodeSummary>, String> {
+    // 假设你已有全局 Querier（通过 OnceLock 管理）
+    let querier = get_querier();   // 确保已初始化
+
+    // 发送请求（协议需与服务端一致）
+    let request = "cmd=get_plugin_list".to_string();
+    let response = querier.query_l(request)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    // 解析 JSON
+    let raw_response: RawPluginsResponse = serde_json::from_str(&response)
+        .map_err(|e| format!("解析插件列表失败: {}", e))?;
+
+    // 转换为 NodeSummary
+    let summaries = raw_response.plugins.into_iter().map(|p| {
+        NodeSummary {
+            id: p.plugin_name,
+            app_id: p.app_id,
+            role: "".to_string(),         // 若服务端未提供，可留空或设置默认
+            status: p.status,              // 直接使用 "运行中"/"停止"
+            hot_role: "".to_string(),      // 同理
+            author: p.author,
+            version: p.version,
+        }
+    }).collect();
+
+    Ok(summaries)
+}
+
