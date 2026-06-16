@@ -92,6 +92,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             nodes::get_node_detail,        // 注册命令
             nodes::set_node_autostart,     // 注册命令
+            nodes::get_nodes_list,
             query_node,
         ])
         .run(tauri::generate_context!())

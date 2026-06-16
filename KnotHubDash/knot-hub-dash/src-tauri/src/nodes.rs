@@ -100,3 +100,32 @@ pub async fn set_node_autostart(node_id: String, auto_start: bool) -> Result<(),
     println!("模拟保存：节点 {} 的自启动设置为 {}", node_id, auto_start);
     Ok(())
 }
+
+#[derive(Serialize)]
+pub struct NodeSummary {
+    pub id: String,
+    pub app_id: String,
+    pub role: String,
+    pub status: String,
+    pub hot_role: String,
+    pub author: String,
+    pub version: String,
+    // status_class 由前端根据 status 动态计算，后端可不返回
+}
+
+#[tauri::command]
+pub fn get_nodes_list() -> Vec<NodeSummary> {
+    // 模拟数据（可从文件或数据库读取）
+    vec![
+        NodeSummary {
+            id: "node-01".to_string(),
+            app_id: "com.example.node01".to_string(),
+            role: "主控".to_string(),
+            status: "运行中".to_string(),
+            hot_role: "主节点".to_string(),
+            author: "课堂助手团队".to_string(),
+            version: "v1.2.0".to_string(),
+        },
+        // ... 其他节点
+    ]
+}
