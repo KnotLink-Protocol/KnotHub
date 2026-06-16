@@ -26,7 +26,7 @@ PluginInfo PluginInfo::fromJson(const QJsonObject &obj, const QString &folderPat
     return info;
 }
 
-QByteArray PluginInfo::toJson()
+QByteArray PluginInfo::toJson(QString status)
 {
     QJsonObject obj;
     obj["plugin_name"] = pluginName;
@@ -36,6 +36,7 @@ QByteArray PluginInfo::toJson()
     obj["auto_start"] = autoStart ? "true" : "false";
     obj["exe_path"] = exePath;
     obj["version"] = version;
+    obj["status"] = status;
     QJsonDocument doc(obj);
     QByteArray jsonData = doc.toJson();
     return jsonData;

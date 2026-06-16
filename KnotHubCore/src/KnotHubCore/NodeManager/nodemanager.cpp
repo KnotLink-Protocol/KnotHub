@@ -314,8 +314,9 @@ void PluginManager::onKnotLinkRecieveData(const QString &data, QString questionI
         QString plugin_name = kvMap["plugin_name"];
         PluginInfo info = this->pluginInfo(plugin_name);
         if (info.isValid()) {
-            QByteArray jsonData = info.toJson();
+            QByteArray jsonData = info.toJson(isPluginRunning(plugin_name)?"运行中":"停止");
             relpy_str = QString::fromUtf8(jsonData);
+            qDebug() << relpy_str;
         } else {
             // 未找到
         }

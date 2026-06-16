@@ -20,7 +20,7 @@ struct PluginInfo
 
     // 从 JSON 对象解析
     static PluginInfo fromJson(const QJsonObject &obj, const QString &folderPath);
-    QByteArray toJson();
+    QByteArray toJson(QString status);
 
     // 验证有效性
     bool isValid() const;

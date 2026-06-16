@@ -82,11 +82,16 @@ fn main() {
                 }
             });
 
+            tauri::async_runtime::block_on(nodes::init_querier())
+                .expect("Failed to init querier");
+
+            print!("1123");
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            nodes::get_node_detail,
-            nodes::set_node_autostart,
+            nodes::get_node_detail,        // 注册命令
+            nodes::set_node_autostart,     // 注册命令
             query_node,
         ])
         .run(tauri::generate_context!())
