@@ -1,5 +1,24 @@
 // src-tauri/src/main.rs
 mod nodes;  // 导入节点模块（需在 src-tauri/src/nodes.rs 中实现）
+// 声明 knotlink_lib 模块（模块文件位于 src/knotlink_lib/）
+mod knotlink_lib;
+
+// 重新导出常用类型（可选，方便命令中使用）
+use knotlink_lib::{OpenSocketQuerier, SignalSender, OpenSocketResponser};
+
+#[tauri::command]
+async fn query_node(plugin_name: String) -> Result<String, String> {
+    let querier = knotlink_lib::OpenSocketQuerier::new(
+        "0x00000002".into(),
+        "0x00000011".into(),
+        "127.0.0.1:6376"
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+
+    let result = querier.query_l(plugin_name).await.map_err(|e| e.to_string())?;
+    Ok(result)
+}
 
 use tauri::{
     menu::{Menu, MenuItem},
@@ -68,6 +87,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             nodes::get_node_detail,
             nodes::set_node_autostart,
+            query_node,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

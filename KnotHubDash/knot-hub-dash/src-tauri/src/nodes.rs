@@ -1,5 +1,6 @@
 use serde::{Serialize, Deserialize};
 
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct NodeDetail {
     #[serde(rename = "pluginName")]
@@ -16,6 +17,7 @@ pub struct NodeDetail {
 
 #[tauri::command]
 pub async fn get_node_detail(node_id: String) -> Result<NodeDetail, String> {
+    
     let mock_detail = NodeDetail {
         plugin_name: node_id.clone(),
         app_id: "0x0000A001".to_string(),

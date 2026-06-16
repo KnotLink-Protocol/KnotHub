@@ -1,3 +1,5 @@
+import { invoke } from '@tauri-apps/api/core';
+
 export default function Home() {
   return (
     <>
@@ -13,7 +15,22 @@ export default function Home() {
       </div>
       <div className="section">
         <div className="section-header"><div className="section-title">快速操作</div></div>
-        <button className="btn btn-primary" onClick={() => alert('同步操作（演示）')}>触发同步</button>
+        <button
+  className="btn btn-primary"
+  onClick={async () => {
+    try {
+      console.log('点击了按钮，开始调用 query_node...');
+      const result = await invoke('query_node', { pluginName: 'node-01' });
+      console.log('调用成功，结果:', result);
+      alert(result);
+    } catch (err) {
+      console.error('调用失败:', err);
+      alert(`错误: ${err}`);
+    }
+  }}
+>
+  触发同步
+</button>
       </div>
     </>
   );
