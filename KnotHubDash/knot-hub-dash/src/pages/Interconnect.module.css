@@ -28,9 +28,12 @@
   border: none;
   cursor: pointer;
   font-size: 14px;
-  padding: 0;
-  width: 20px;
-  text-align: center;
+  padding: 0 6px;
+  color: var(--text-secondary);
+  transition: transform 0.2s;
+}
+.expandBtn:hover {
+  color: var(--text-primary);
 }
 
 .recipeIcon {

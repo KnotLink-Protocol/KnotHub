@@ -17,6 +17,7 @@ import Settings from './pages/Settings';
 import NodePreview from './components/preview/NodePreview';
 import LinkPreview from './components/preview/LinkPreview';
 import PortPreview from './components/preview/PortPreview';
+import RecipePreview from './components/preview/RecipePreview';
 
 
 function App() {
@@ -98,6 +99,7 @@ function PreviewBar() {
         {previewData?.type === 'node' && <NodePreview nodeId={previewData.id} />}
         {previewData?.type === 'link' && <LinkPreview linkId={previewData.id} />}
         {previewData?.type === 'port' && <PortPreview port={previewData.id} />}
+        {previewData?.type === 'recipe' && <RecipePreview data={previewData.details} />}
         {/* 后续可以添加 recipe 等 */}
       </div>
     </div>
