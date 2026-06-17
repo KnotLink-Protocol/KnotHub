@@ -42,10 +42,71 @@ export default function Nodes() {
     window.dispatchEvent(new CustomEvent('update-preview', { detail: { type: 'node', id: nodeId } }));
   };
 
-  const handleAction = (action: string, nodeId: string, e: React.MouseEvent) => {
+  const handleAction = async (action: string, nodeId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    // TODO: 对接真实 Tauri 命令
-    alert(`[演示] 对节点 ${nodeId} 执行操作: ${action}`);
+    try {
+      switch (action) {
+        case 'start': {
+            
+          await invoke('start_node', { pluginName: nodeId });
+
+          // 乐观更新：立即将状态改为"运行中"
+          setNodes(prev =>
+            prev.map(n =>
+              n.id === nodeId ? { ...n, status: '运行中' } : n
+            )
+          );
+          
+          // 后台静默刷新以同步后端数据
+        //   await fetchNodes();
+          break;
+        }
+        case 'stop': {
+            
+          await invoke('stop_node', { pluginName: nodeId });
+          
+          setNodes(prev =>
+            prev.map(n =>
+              n.id === nodeId ? { ...n, status: '停止' } : n
+            )
+          );
+        //   await fetchNodes();
+          break;
+        }
+        case 'delete': {
+          if (confirm(`确定要删除节点 ${nodeId} 吗？`)) {
+            await invoke('delete_node', { pluginName: nodeId });
+            // 删除成功后，从列表中移除该节点
+            setNodes(prev => prev.filter(n => n.id !== nodeId));
+            // 清空预览面板
+            window.dispatchEvent(new CustomEvent('update-preview', { detail: null }));
+            // 后台同步（确保删除成功）
+            await fetchNodes();
+          }
+          break;
+        }
+        case 'settings': {
+          const newSettings = prompt('请输入新的设置（JSON格式，例如 {"role":"主控"}）');
+          if (newSettings) {
+            await invoke('update_node_settings', { pluginName: nodeId, settings: newSettings });
+            alert('设置已更新');
+            await fetchNodes(); // 刷新列表以反映可能的变化
+          }
+          break;
+        }
+        case 'home': {
+          await invoke('open_node_home', { pluginName: nodeId });
+          alert('已打开主页');
+          break;
+        }
+        default:
+          alert(`未知操作: ${action}`);
+      }
+    } catch (err) {
+      // 如果操作失败，从后端重新加载数据以恢复正确状态
+      await fetchNodes();
+      alert(`操作失败: ${err}`);
+    }
   };
 
   // 根据状态生成 CSS 类名
@@ -77,7 +138,7 @@ export default function Nodes() {
               className={styles.nodeCard}
               onClick={() => handleItemClick(node.id)}
             >
-              {/* 上区域 */}
+              {/* 上区域：APP ID + 状态 + 删除按钮 */}
               <div className={styles.top}>
                 <span className={styles.appId}>{node.app_id}</span>
                 <div className={styles.topRight}>
@@ -92,7 +153,7 @@ export default function Nodes() {
                 </div>
               </div>
 
-              {/* 中区域 */}
+              {/* 中区域：图标 + 名称 + 操作按钮 */}
               <div className={styles.middle}>
                 <div className={styles.infoLeft}>
                   <span className={styles.icon}>🖥️</span>
@@ -127,7 +188,7 @@ export default function Nodes() {
                 </div>
               </div>
 
-              {/* 下区域 */}
+              {/* 下区域：作者 + 版本 */}
               <div className={styles.bottom}>
                 <span className={styles.author}>{node.author}</span>
                 <span className={styles.version}>{node.version}</span>

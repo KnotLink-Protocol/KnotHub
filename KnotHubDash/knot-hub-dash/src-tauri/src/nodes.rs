@@ -71,6 +71,8 @@ fn get_querier() -> &'static OpenSocketQuerier {
 #[tauri::command]
 pub async fn get_node_detail(node_id: String) -> Result<NodeDetail, String> {
 
+    println!("get_node_detail");
+
     let querier = get_querier();
 
     let mut req = HashMap::new();
@@ -98,7 +100,14 @@ pub async fn get_node_detail(node_id: String) -> Result<NodeDetail, String> {
 #[tauri::command]
 pub async fn set_node_autostart(node_id: String, auto_start: bool) -> Result<(), String> {
     println!("模拟保存：节点 {} 的自启动设置为 {}", node_id, auto_start);
-    Ok(())
+    let querier = get_querier();
+    let request = format!("cmd=update_config;plugin_name={};autostart={}", node_id,auto_start);
+    let response = querier.query_l(request).await.map_err(|e| e.to_string())?;
+    if response == "successful" {
+        Ok(())
+    } else {
+        Err(format!("设置失败: {}", response))
+    }
 }
 
 
@@ -131,6 +140,9 @@ struct RawPluginsResponse {
 // ---------- 命令：获取节点列表 ----------
 #[tauri::command]
 pub async fn get_nodes_list() -> Result<Vec<NodeSummary>, String> {
+
+    println!("get_nodes_list");
+
     // 假设你已有全局 Querier（通过 OnceLock 管理）
     let querier = get_querier();   // 确保已初始化
 
@@ -160,3 +172,64 @@ pub async fn get_nodes_list() -> Result<Vec<NodeSummary>, String> {
     Ok(summaries)
 }
 
+// 启动节点
+#[tauri::command]
+pub async fn start_node(plugin_name: String) -> Result<(), String> {
+    let querier = get_querier();
+    let request = format!("cmd=plugin_control;action=start;plugin_name={}", plugin_name);
+    let response = querier.query_l(request).await.map_err(|e| e.to_string())?;
+    if response == "ok" {
+        Ok(())
+    } else {
+        Err(format!("启动失败: {}", response))
+    }
+}
+
+// 停止节点
+#[tauri::command]
+pub async fn stop_node(plugin_name: String) -> Result<(), String> {
+    let querier = get_querier();
+    let request = format!("cmd=plugin_control;action=stop;plugin_name={}", plugin_name);
+    let response = querier.query_l(request).await.map_err(|e| e.to_string())?;
+    if response == "ok" {
+        Ok(())
+    } else {
+        Err(format!("停止失败: {}", response))
+    }
+}
+
+// 删除节点
+#[tauri::command]
+pub async fn delete_node(plugin_name: String) -> Result<(), String> {
+    let querier = get_querier();
+    let request = format!("cmd=delete;plugin_name={}", plugin_name);
+    let response = querier.query_l(request).await.map_err(|e| e.to_string())?;
+    if response == "ok" {
+        Ok(())
+    } else {
+        Err(format!("删除失败: {}", response))
+    }
+}
+
+// 更新节点设置（示例：传递 JSON 或键值对）
+#[tauri::command]
+pub async fn update_node_settings(plugin_name: String, settings: String) -> Result<(), String> {
+    let querier = get_querier();
+    // settings 可以是 JSON 字符串，例如 {"role":"主控"}
+    let request = format!("cmd=update_settings;plugin_name={};settings={}", plugin_name, settings);
+    let response = querier.query_l(request).await.map_err(|e| e.to_string())?;
+    if response == "ok" {
+        Ok(())
+    } else {
+        Err(format!("更新设置失败: {}", response))
+    }
+}
+
+// 获取节点主页（可能返回 URL 或直接打开）
+#[tauri::command]
+pub async fn open_node_home(plugin_name: String) -> Result<(), String> {
+    // 简单实现：打印日志，或调用系统浏览器
+    println!("打开节点 {} 的主页", plugin_name);
+    // 如果服务端有主页地址，可以查询后打开
+    Ok(())
+}

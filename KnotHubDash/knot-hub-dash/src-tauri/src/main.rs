@@ -93,6 +93,11 @@ fn main() {
             nodes::get_node_detail,        // 注册命令
             nodes::set_node_autostart,     // 注册命令
             nodes::get_nodes_list,
+            nodes::start_node,
+    nodes::stop_node,
+    nodes::delete_node,
+    nodes::update_node_settings,
+    nodes::open_node_home,
             query_node,
         ])
         .run(tauri::generate_context!())

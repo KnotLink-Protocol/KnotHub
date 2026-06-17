@@ -4,6 +4,8 @@
 #include <QWidget>
 #include "NodeManager/nodemanager.h"
 
+#include <KnotLinkLib>
+
 namespace Ui {
 class KnotHubCore;
 }

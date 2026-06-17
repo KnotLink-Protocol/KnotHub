@@ -1,0 +1,69 @@
+.treeContainer {
+  padding: 8px 0;
+}
+
+.treeNode {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px;
+  margin: 2px 0;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.treeNode:hover {
+  background: var(--bg-hover);
+}
+
+.treeNodeContent {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.expandBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0;
+  width: 20px;
+  text-align: center;
+}
+
+.recipeIcon {
+  font-size: 14px;
+  margin-right: 4px;
+}
+
+.nodeName {
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.editInput {
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-size: 13px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.nodeActions {
+  display: flex;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.treeNode:hover .nodeActions {
+  opacity: 1;
+}
+
+.children {
+  /* 子节点缩进通过父级 marginLeft 控制，此处不需要额外边距 */
+}

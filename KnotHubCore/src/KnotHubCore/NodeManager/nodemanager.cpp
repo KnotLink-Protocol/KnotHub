@@ -380,16 +380,18 @@ void PluginManager::onKnotLinkRecieveData(const QString &data, QString questionI
         QJsonObject response;
         if (success && errorMsg.isEmpty())
         {
+            relpy_str = "ok";
             response["status"] = "ok";
             response["message"] = QString("Plugin %1 %succeeded").arg(plugin_name).arg(
                         (action == "start" ? "start " : action == "stop" ? "stop " : "restart "));
         }
         else
         {
+            relpy_str = errorMsg.isEmpty() ? "Unknown error" : errorMsg;
             response["status"] = "error";
             response["error"] = errorMsg.isEmpty() ? "Unknown error" : errorMsg;
         }
-        relpy_str = QString::fromUtf8(QJsonDocument(response).toJson());
+//        relpy_str = QString::fromUtf8(QJsonDocument(response).toJson());
     }
     else if(cmd=="update_config")
     {
