@@ -240,110 +240,30 @@ pub async fn get_node_manifest(nodeId: String) -> Result<serde_json::Value, Stri
     println!("🔍 get_node_manifest called with nodeId: {}", nodeId);
     // 先返回一个固定示例，确保功能正常
     let manifest = json!({
-  "appName": "系统操作工具",
+  "appName": "系统监控服务",
   "openSocket": {
-    "SSS": {
-      "appID": "0x00000015",
-      "openSocketID": "0x00000011",
-      "description": "",
+    "system": {
+      "appID": "com.monitor.node",
+      "openSocketID": "system",
+      "description": "查询 Windows 主机的实时系统资源（CPU、内存、磁盘、网络）",
       "args": {
-        "cmd": {
+        "type": {
           "type": "optional",
-          "description": "操作",
+          "description": "查询的资源类型",
+          "defaultVal": "all",
           "options": [
-            [
-              "关机",
-              "shutdown"
-            ],
-            [
-              "睡眠",
-              "sleep"
-            ],
-            [
-              "锁屏",
-              "lockScreen"
-            ]
+            ["全部", "all"],
+            ["CPU", "cpu"],
+            ["内存", "memory"],
+            ["磁盘", "disk"],
+            ["网络", "network"]
           ]
-        }
-      },
-      "returns": []
-    },
-    "findWindowByTitle": {
-      "appID": "0x00000015",
-      "openSocketID": "0x00000011",
-      "description": "",
-      "args": {
-        "cmd": {
-          "type": "optional",
-          "description": "",
-          "options": [
-            [
-              "获取窗口句柄",
-              "findWindowByTitle"
-            ]
-          ]
-        },
-        "title": {
-          "type": "input",
-          "description": "窗口标题",
-          "defaultVal": "t"
         }
       },
       "returns": [
-        [
-          "句柄",
-          "hwnd"
-        ]
+        ["序列化结果", "result"],
+        ["说明", "返回值为 KLKVMap 格式的键值对字符串，具体字段随 type 变化"]
       ]
-    },
-    "setWindowState": {
-      "appID": "0x00000015",
-      "openSocketID": "0x00000011",
-      "description": "",
-      "args": {
-        "cmd": {
-          "type": "optional",
-          "description": "",
-          "options": [
-            [
-              "设置窗体状态",
-              "setWindowState"
-            ]
-          ]
-        },
-        "hwnd": {
-          "type": "input",
-          "description": "句柄",
-          "defaultVal": "0"
-        },
-        "state": {
-          "type": "optional",
-          "description": "状态",
-          "options": [
-            [
-              "隐藏",
-              "SW_HIDE"
-            ],
-            [
-              "显示",
-              "SW_SHOW"
-            ],
-            [
-              "最小化",
-              "SW_MINIMIZE"
-            ],
-            [
-              "最大化",
-              "SW_MAXIMIZE"
-            ],
-            [
-              "恢复",
-              "SW_RESTORE"
-            ]
-          ]
-        }
-      },
-      "returns": []
     }
   },
   "signal": {}

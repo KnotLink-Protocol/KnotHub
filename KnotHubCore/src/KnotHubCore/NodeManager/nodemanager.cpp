@@ -399,7 +399,32 @@ void PluginManager::onKnotLinkRecieveData(const QString &data, QString questionI
         QString autostart  = kvMap["autostart"];
         bool success = updatePluginConfig(pluginName, autostart);
         relpy_str=success?"successful":"failed";
-    }else if(cmd=="refresh")
+    }
+    else if (cmd == "get_funclist")
+    {
+        QString plugin_name = kvMap["plugin_name"];
+        if (plugin_name.isEmpty()) {
+            relpy_str = "Error: missing plugin_name";
+        } else {
+            PluginInfo info = this->pluginInfo(plugin_name);
+            if (!info.isValid()) {
+                relpy_str = "Error: plugin not found or invalid";
+            } else {
+                QString funcListPath = info.folderPath + "/FuncList.json";
+                QFile file(funcListPath);
+                if (!file.exists()) {
+                    relpy_str = "Error: FuncList.json not found";
+                } else if (!file.open(QIODevice::ReadOnly)) {
+                    relpy_str = "Error: cannot open FuncList.json";
+                } else {
+                    QByteArray content = file.readAll();
+                    relpy_str = QString::fromUtf8(content);   // 直接返回原始 JSON 文本
+                    file.close();
+                }
+            }
+        }
+    }
+    else if(cmd=="refresh")
     {
         refreshPluginList();
         QByteArray json = exportPluginListToJson();
