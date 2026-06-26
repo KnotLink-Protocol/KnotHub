@@ -53,15 +53,18 @@ const NodePreview: React.FC<NodePreviewProps> = ({ nodeId }) => {
   };
 
   const fetchManifest = async () => {
-  if (!nodeId) return;
+  if (!nodeId) {
+    setManifest(null);
+    return;
+  }
   setManifestLoading(true);
+  setManifest(null);          // 立即清除旧清单，避免残留
+  setManifestError(null);
   try {
     const data = await invoke<FunctionManifest>('get_node_manifest', { nodeId });
     setManifest(data);
-    setManifestError(null);
   } catch (err: any) {
     console.error('get_node_manifest 错误详情:', err);
-    // 显示更详细的错误信息
     setManifestError(err.message || '加载功能清单失败');
   } finally {
     setManifestLoading(false);

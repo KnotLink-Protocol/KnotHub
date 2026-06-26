@@ -46,10 +46,10 @@ impl From<RawNodeDetail> for NodeDetail {
         }
     }
 }
-// ---------- 全局 Querier ----------
-static QUERIER: OnceLock<OpenSocketQuerier> = OnceLock::new();
+use tokio::sync::Mutex;   // 异步锁
 
-/// 初始化全局 Querier（在 main.rs 的 setup 中调用）
+static QUERIER: OnceLock<Mutex<OpenSocketQuerier>> = OnceLock::new();
+
 pub async fn init_querier() -> Result<(), String> {
     let querier = OpenSocketQuerier::new(
         "0x00000002".into(),
@@ -58,14 +58,13 @@ pub async fn init_querier() -> Result<(), String> {
     )
     .await
     .map_err(|e| e.to_string())?;
-    QUERIER.set(querier)
+    QUERIER.set(Mutex::new(querier))
         .map_err(|_| "Querier already initialized".to_string())?;
     Ok(())
 }
 
-/// 获取 Querier 引用（内部使用）
-fn get_querier() -> &'static OpenSocketQuerier {
-    QUERIER.get().expect("Querier not initialized. Did you call init_querier()?")
+fn get_querier() -> &'static Mutex<OpenSocketQuerier> {
+    QUERIER.get().expect("Querier not initialized")
 }
 
 // ---------- Tauri 命令 ----------
@@ -74,7 +73,7 @@ pub async fn get_node_detail(node_id: String) -> Result<NodeDetail, String> {
 
     println!("get_node_detail");
 
-    let querier = get_querier();
+    let querier = get_querier().lock().await;
 
     let mut req = HashMap::new();
     req.insert("cmd".to_string(), "get_detail".to_string());
@@ -101,7 +100,7 @@ pub async fn get_node_detail(node_id: String) -> Result<NodeDetail, String> {
 #[tauri::command]
 pub async fn set_node_autostart(node_id: String, auto_start: bool) -> Result<(), String> {
     println!("模拟保存：节点 {} 的自启动设置为 {}", node_id, auto_start);
-    let querier = get_querier();
+    let querier = get_querier().lock().await;
     let request = format!("cmd=update_config;plugin_name={};autostart={}", node_id,auto_start);
     let response = querier.query_l(request).await.map_err(|e| e.to_string())?;
     if response == "successful" {
@@ -145,7 +144,7 @@ pub async fn get_nodes_list() -> Result<Vec<NodeSummary>, String> {
     println!("get_nodes_list");
 
     // 假设你已有全局 Querier（通过 OnceLock 管理）
-    let querier = get_querier();   // 确保已初始化
+    let querier = get_querier().lock().await;   // 确保已初始化
 
     // 发送请求（协议需与服务端一致）
     let request = "cmd=get_plugin_list".to_string();
@@ -176,7 +175,7 @@ pub async fn get_nodes_list() -> Result<Vec<NodeSummary>, String> {
 // 启动节点
 #[tauri::command]
 pub async fn start_node(plugin_name: String) -> Result<(), String> {
-    let querier = get_querier();
+    let querier = get_querier().lock().await;
     let request = format!("cmd=plugin_control;action=start;plugin_name={}", plugin_name);
     let response = querier.query_l(request).await.map_err(|e| e.to_string())?;
     if response == "ok" {
@@ -189,7 +188,7 @@ pub async fn start_node(plugin_name: String) -> Result<(), String> {
 // 停止节点
 #[tauri::command]
 pub async fn stop_node(plugin_name: String) -> Result<(), String> {
-    let querier = get_querier();
+    let querier = get_querier().lock().await;
     let request = format!("cmd=plugin_control;action=stop;plugin_name={}", plugin_name);
     let response = querier.query_l(request).await.map_err(|e| e.to_string())?;
     if response == "ok" {
@@ -202,7 +201,7 @@ pub async fn stop_node(plugin_name: String) -> Result<(), String> {
 // 删除节点
 #[tauri::command]
 pub async fn delete_node(plugin_name: String) -> Result<(), String> {
-    let querier = get_querier();
+    let querier = get_querier().lock().await;
     let request = format!("cmd=delete;plugin_name={}", plugin_name);
     let response = querier.query_l(request).await.map_err(|e| e.to_string())?;
     if response == "ok" {
@@ -215,7 +214,7 @@ pub async fn delete_node(plugin_name: String) -> Result<(), String> {
 // 更新节点设置（示例：传递 JSON 或键值对）
 #[tauri::command]
 pub async fn update_node_settings(plugin_name: String, settings: String) -> Result<(), String> {
-    let querier = get_querier();
+    let querier = get_querier().lock().await;
     // settings 可以是 JSON 字符串，例如 {"role":"主控"}
     let request = format!("cmd=update_settings;plugin_name={};settings={}", plugin_name, settings);
     let response = querier.query_l(request).await.map_err(|e| e.to_string())?;
@@ -238,36 +237,33 @@ pub async fn open_node_home(plugin_name: String) -> Result<(), String> {
 #[tauri::command]
 pub async fn get_node_manifest(nodeId: String) -> Result<serde_json::Value, String> {
     println!("🔍 get_node_manifest called with nodeId: {}", nodeId);
-    // 先返回一个固定示例，确保功能正常
-    let manifest = json!({
-  "appName": "系统监控服务",
-  "openSocket": {
-    "system": {
-      "appID": "com.monitor.node",
-      "openSocketID": "system",
-      "description": "查询 Windows 主机的实时系统资源（CPU、内存、磁盘、网络）",
-      "args": {
-        "type": {
-          "type": "optional",
-          "description": "查询的资源类型",
-          "defaultVal": "all",
-          "options": [
-            ["全部", "all"],
-            ["CPU", "cpu"],
-            ["内存", "memory"],
-            ["磁盘", "disk"],
-            ["网络", "network"]
-          ]
-        }
-      },
-      "returns": [
-        ["序列化结果", "result"],
-        ["说明", "返回值为 KLKVMap 格式的键值对字符串，具体字段随 type 变化"]
-      ]
+    
+    // 获取全局 Querier（单例，复用连接）
+    let querier = get_querier().lock().await;  // 注意：需要加锁，因为 get_querier() 返回的是 &'static OpenSocketQuerier（未加锁）
+    // 但你的全局 QUERIER 目前是 OnceLock<OpenSocketQuerier>，不是 Mutex，所以可以直接用。
+    // 如果以后改成带锁的，记得 .lock().unwrap()
+
+    // 构造 KL 请求（根据你的实际协议调整）
+    let mut req = HashMap::new();
+    req.insert("cmd".to_string(), "get_funclist".to_string());
+    req.insert("plugin_name".to_string(), nodeId);
+    let request = KvMapExt::serialize(&req);  // 例如 "cmd=get_manifest;plugin_name=xxx"
+
+    // 发送查询，等待响应
+    let response = querier.query_l(request)
+        .await
+        .map_err(|e| format!("查询功能清单失败: {}", e))?;
+
+    // 解析响应（假设服务端返回 JSON 格式）
+    let manifest: serde_json::Value = serde_json::from_str(&response)
+        .map_err(|e| format!("解析功能清单 JSON 失败: {}, 原始: {}", e, response))?;
+
+    // 可选：验证返回的结构是否符合预期（appName, openSocket, signal 等）
+    // 如果不符合，可以返回错误或默认空清单
+    if !manifest.is_object() {
+        return Err("服务端返回的不是有效的 JSON 对象".to_string());
     }
-  },
-  "signal": {}
-});
+
     Ok(manifest)
 }
 
@@ -277,7 +273,7 @@ pub async fn call_open_socket(
     openSocketId: String,
     args: HashMap<String, String>,
 ) -> Result<String, String> {
-    let querier = get_querier();
+    let querier = get_querier().lock().await;
     let mut req = HashMap::new();
     // 注意：app_id 和 open_socket_id 不再需要放在请求体里（由前缀携带）
     // 但仍可以保留作为请求参数，视协议而定
