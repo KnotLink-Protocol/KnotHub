@@ -64,4 +64,30 @@ impl OpenSocketQuerier {
         self.tx.send(full)?;
         Ok(())
     }
+
+    /// 使用临时指定的 app_id 和 open_socket_id 发送查询（不改变自身配置）
+    pub async fn query_with_ids(
+        &self,
+        app_id: &str,
+        open_socket_id: &str,
+        data: String,
+    ) -> Result<String> {
+        let key = format!("{}-{}&*&", app_id, open_socket_id);
+        let mut full = key.into_bytes();
+        full.extend(data.as_bytes());
+        self.tx.send(full)?;
+
+        let (resp_tx, resp_rx) = oneshot::channel();
+        {
+            let mut guard = self.pending_response.lock().unwrap();
+            *guard = Some(resp_tx);
+        }
+        let resp = resp_rx.await.map_err(|_| anyhow::anyhow!("响应通道关闭"))?;
+        Ok(String::from_utf8(resp)?)
+    }
+
+    pub fn set_config(&mut self, app_id: String, open_socket_id: String) {
+    self.app_id = app_id;
+    self.open_socket_id = open_socket_id;
+}
 }

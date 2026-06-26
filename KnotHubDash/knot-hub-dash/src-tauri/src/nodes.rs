@@ -240,28 +240,114 @@ pub async fn get_node_manifest(nodeId: String) -> Result<serde_json::Value, Stri
     println!("🔍 get_node_manifest called with nodeId: {}", nodeId);
     // 先返回一个固定示例，确保功能正常
     let manifest = json!({
-        "appName": "系统操作工具",
-        "openSocket": {
-            "SSS": {
-                "appID": "0x00000015",
-                "openSocketID": "0x00000011",
-                "description": "系统操作",
-                "args": {
-                    "cmd": {
-                        "type": "optional",
-                        "description": "操作",
-                        "options": [
-                            ["关机", "shutdown"],
-                            ["睡眠", "sleep"],
-                            ["锁屏", "lockScreen"]
-                        ]
-                    }
-                },
-                "returns": []
-            }
+  "appName": "系统操作工具",
+  "openSocket": {
+    "SSS": {
+      "appID": "0x00000015",
+      "openSocketID": "0x00000011",
+      "description": "",
+      "args": {
+        "cmd": {
+          "type": "optional",
+          "description": "操作",
+          "options": [
+            [
+              "关机",
+              "shutdown"
+            ],
+            [
+              "睡眠",
+              "sleep"
+            ],
+            [
+              "锁屏",
+              "lockScreen"
+            ]
+          ]
+        }
+      },
+      "returns": []
+    },
+    "findWindowByTitle": {
+      "appID": "0x00000015",
+      "openSocketID": "0x00000011",
+      "description": "",
+      "args": {
+        "cmd": {
+          "type": "optional",
+          "description": "",
+          "options": [
+            [
+              "获取窗口句柄",
+              "findWindowByTitle"
+            ]
+          ]
         },
-        "signal": {}
-    });
+        "title": {
+          "type": "input",
+          "description": "窗口标题",
+          "defaultVal": "t"
+        }
+      },
+      "returns": [
+        [
+          "句柄",
+          "hwnd"
+        ]
+      ]
+    },
+    "setWindowState": {
+      "appID": "0x00000015",
+      "openSocketID": "0x00000011",
+      "description": "",
+      "args": {
+        "cmd": {
+          "type": "optional",
+          "description": "",
+          "options": [
+            [
+              "设置窗体状态",
+              "setWindowState"
+            ]
+          ]
+        },
+        "hwnd": {
+          "type": "input",
+          "description": "句柄",
+          "defaultVal": "0"
+        },
+        "state": {
+          "type": "optional",
+          "description": "状态",
+          "options": [
+            [
+              "隐藏",
+              "SW_HIDE"
+            ],
+            [
+              "显示",
+              "SW_SHOW"
+            ],
+            [
+              "最小化",
+              "SW_MINIMIZE"
+            ],
+            [
+              "最大化",
+              "SW_MAXIMIZE"
+            ],
+            [
+              "恢复",
+              "SW_RESTORE"
+            ]
+          ]
+        }
+      },
+      "returns": []
+    }
+  },
+  "signal": {}
+});
     Ok(manifest)
 }
 
@@ -273,12 +359,17 @@ pub async fn call_open_socket(
 ) -> Result<String, String> {
     let querier = get_querier();
     let mut req = HashMap::new();
-    req.insert("app_id".to_string(), appId);
-    req.insert("open_socket_id".to_string(), openSocketId);
+    // 注意：app_id 和 open_socket_id 不再需要放在请求体里（由前缀携带）
+    // 但仍可以保留作为请求参数，视协议而定
     for (k, v) in args {
         req.insert(k, v);
     }
     let request = KvMapExt::serialize(&req);
-    let response = querier.query_l(request).await.map_err(|e| e.to_string())?;
+    
+    // 使用 query_with_ids 传递临时 ID
+    let response = querier
+        .query_with_ids(&appId, &openSocketId, request)
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(response)
 }
