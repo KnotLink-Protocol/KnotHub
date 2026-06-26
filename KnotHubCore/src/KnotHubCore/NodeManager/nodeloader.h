@@ -3,8 +3,6 @@
 
 #include <QObject>
 #include <QProcess>
-#include <QtDebug>
-#include <QThread>
 
 class NodeLoader : public QObject
 {
@@ -15,7 +13,7 @@ public:
 
     void start(const QString &program, const QStringList &arguments);
     void stop();
-    bool statuscheck() const;  // true=运行中, false=未运行
+    bool statuscheck() const;   // true=运行中, false=未运行
 
 signals:
     void processFinished(int exitCode, QProcess::ExitStatus exitStatus);
@@ -24,6 +22,7 @@ signals:
 private slots:
     void onProcessFinished(int exitCode, QProcess::ExitStatus exitStatus);
     void onProcessError(QProcess::ProcessError error);
+    void onReadyRead();         // 新增：读取并打印进程输出
 
 private:
     QProcess *m_process;

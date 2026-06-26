@@ -90,16 +90,18 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            nodes::get_node_detail,        // 注册命令
-            nodes::set_node_autostart,     // 注册命令
-            nodes::get_nodes_list,
-            nodes::start_node,
+    nodes::get_node_detail,
+    nodes::set_node_autostart,
+    nodes::get_nodes_list,
+    nodes::start_node,
     nodes::stop_node,
     nodes::delete_node,
     nodes::update_node_settings,
     nodes::open_node_home,
-            query_node,
-        ])
+    nodes::get_node_manifest,    // 新增
+    nodes::call_open_socket,     // 新增
+    query_node,
+])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

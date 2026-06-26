@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+// 新增导入：功能清单解析器
+import FunctionListParser from '../FunctionListParser';
+import type { FunctionManifest, OpenSocketFunc } from '../FunctionListParser/types';
 
 interface NodeDetail {
   pluginName: string;
@@ -20,6 +23,11 @@ const NodePreview: React.FC<NodePreviewProps> = ({ nodeId }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updating, setUpdating] = useState(false);
+
+  // ---- 新增：功能清单相关状态 ----
+  const [manifest, setManifest] = useState<FunctionManifest | null>(null);
+  const [manifestLoading, setManifestLoading] = useState(false);
+  const [manifestError, setManifestError] = useState<string | null>(null);
 
   const fetchDetail = async () => {
     try {
@@ -44,11 +52,26 @@ const NodePreview: React.FC<NodePreviewProps> = ({ nodeId }) => {
     }
   };
 
+  const fetchManifest = async () => {
+  if (!nodeId) return;
+  setManifestLoading(true);
+  try {
+    const data = await invoke<FunctionManifest>('get_node_manifest', { nodeId });
+    setManifest(data);
+    setManifestError(null);
+  } catch (err: any) {
+    console.error('get_node_manifest 错误详情:', err);
+    // 显示更详细的错误信息
+    setManifestError(err.message || '加载功能清单失败');
+  } finally {
+    setManifestLoading(false);
+  }
+};
+
   const handleAutoStartChange = async (checked: boolean) => {
     if (!detail) return;
     try {
       setUpdating(true);
-      // TODO: 调用后端命令保存
       await invoke('set_node_autostart', { nodeId, autoStart: checked });
       setDetail({ ...detail, autoStart: checked });
     } catch (err: any) {
@@ -58,8 +81,20 @@ const NodePreview: React.FC<NodePreviewProps> = ({ nodeId }) => {
     }
   };
 
+  // ---- 新增：处理功能调用 ----
+  const handleInvoke = async (func: OpenSocketFunc, args: Record<string, string>) => {
+    const { appID, openSocketID } = func;
+    try {
+      const result = await invoke('call_open_socket', { appId: appID, openSocketId: openSocketID, args });
+      alert(`调用成功：${JSON.stringify(result)}`);
+    } catch (err: any) {
+      alert(`调用失败：${err.message}`);
+    }
+  };
+
   useEffect(() => {
     fetchDetail();
+    fetchManifest(); // ---- 新增：加载功能清单 ----
   }, [nodeId]);
 
   if (loading) return <div className="preview-loading">加载节点信息中...</div>;
@@ -68,6 +103,7 @@ const NodePreview: React.FC<NodePreviewProps> = ({ nodeId }) => {
 
   return (
     <div className="node-preview">
+      {/* === 原有节点详情（完全不变） === */}
       <div className="preview-field"><strong>插件名称</strong> {detail.pluginName}</div>
       <div className="preview-field"><strong>应用ID</strong> {detail.appId}</div>
       <div className="preview-field"><strong>作者</strong> {detail.author}</div>
@@ -89,6 +125,24 @@ const NodePreview: React.FC<NodePreviewProps> = ({ nodeId }) => {
           {updating && <span style={{ marginLeft: '8px', fontSize: '12px', color: 'var(--text-secondary)' }}>保存中...</span>}
         </div>
       </div>
+
+      {/* === 新增：功能清单区域（放在节点详情下方） === */}
+      {manifestLoading && <div className="manifest-loading">加载功能清单中...</div>}
+      {manifestError && <div className="manifest-error">功能清单加载失败: {manifestError}</div>}
+      {manifest && Object.keys(manifest.openSocket).length > 0 && (
+        <div className="manifest-section">
+          <hr />
+          <h4 style={{ margin: '8px 0 4px 0', fontSize: '14px' }}>功能清单</h4>
+          <FunctionListParser
+            manifest={manifest}
+            onInvoke={handleInvoke}
+            compact={true}
+          />
+        </div>
+      )}
+      {manifest && Object.keys(manifest.openSocket).length === 0 && (
+        <div className="manifest-empty">该节点暂无可用功能</div>
+      )}
     </div>
   );
 };

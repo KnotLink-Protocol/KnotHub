@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::OnceLock;
+use serde_json::json;
 use serde::{Serialize, Deserialize};
 use crate::knotlink_lib::{OpenSocketQuerier, KvMapExt};
 
@@ -232,4 +233,52 @@ pub async fn open_node_home(plugin_name: String) -> Result<(), String> {
     println!("打开节点 {} 的主页", plugin_name);
     // 如果服务端有主页地址，可以查询后打开
     Ok(())
+}
+// 放在 nodes.rs 末尾
+#[tauri::command]
+pub async fn get_node_manifest(nodeId: String) -> Result<serde_json::Value, String> {
+    println!("🔍 get_node_manifest called with nodeId: {}", nodeId);
+    // 先返回一个固定示例，确保功能正常
+    let manifest = json!({
+        "appName": "系统操作工具",
+        "openSocket": {
+            "SSS": {
+                "appID": "0x00000015",
+                "openSocketID": "0x00000011",
+                "description": "系统操作",
+                "args": {
+                    "cmd": {
+                        "type": "optional",
+                        "description": "操作",
+                        "options": [
+                            ["关机", "shutdown"],
+                            ["睡眠", "sleep"],
+                            ["锁屏", "lockScreen"]
+                        ]
+                    }
+                },
+                "returns": []
+            }
+        },
+        "signal": {}
+    });
+    Ok(manifest)
+}
+
+#[tauri::command]
+pub async fn call_open_socket(
+    appId: String,
+    openSocketId: String,
+    args: HashMap<String, String>,
+) -> Result<String, String> {
+    let querier = get_querier();
+    let mut req = HashMap::new();
+    req.insert("app_id".to_string(), appId);
+    req.insert("open_socket_id".to_string(), openSocketId);
+    for (k, v) in args {
+        req.insert(k, v);
+    }
+    let request = KvMapExt::serialize(&req);
+    let response = querier.query_l(request).await.map_err(|e| e.to_string())?;
+    Ok(response)
 }
