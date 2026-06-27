@@ -543,3 +543,40 @@ input:disabled + .slider {
 [data-theme="dark"] input:checked + .slider {
   background-color: var(--primary-color, #6ea8fe);
 }
+
+.manifest-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.view-toggle {
+  display: flex;
+  gap: 4px;
+  background: var(--bg-body);
+  border-radius: 4px;
+  padding: 2px;
+}
+
+.view-btn {
+  background: transparent;
+  border: none;
+  padding: 4px 12px;
+  font-size: 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: background 0.15s, color 0.15s;
+}
+
+.view-btn:hover {
+  background: var(--bg-hover);
+}
+
+.view-btn.active {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}

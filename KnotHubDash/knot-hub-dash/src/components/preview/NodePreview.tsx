@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 // 新增导入：功能清单解析器
 import FunctionListParser from '../FunctionListParser';
 import type { FunctionManifest, OpenSocketFunc } from '../FunctionListParser/types';
+import FunctionListDoc from '../FunctionListParser/FunctionListDoc';
 
 interface NodeDetail {
   pluginName: string;
@@ -28,6 +29,9 @@ const NodePreview: React.FC<NodePreviewProps> = ({ nodeId }) => {
   const [manifest, setManifest] = useState<FunctionManifest | null>(null);
   const [manifestLoading, setManifestLoading] = useState(false);
   const [manifestError, setManifestError] = useState<string | null>(null);
+
+    // 新增视图模式状态
+  const [viewMode, setViewMode] = useState<'interactive' | 'docs'>('interactive');
 
   const fetchDetail = async () => {
     try {
@@ -129,18 +133,35 @@ const NodePreview: React.FC<NodePreviewProps> = ({ nodeId }) => {
         </div>
       </div>
 
-      {/* === 新增：功能清单区域（放在节点详情下方） === */}
+      {/* === 功能清单区域 === */}
       {manifestLoading && <div className="manifest-loading">加载功能清单中...</div>}
       {manifestError && <div className="manifest-error">功能清单加载失败: {manifestError}</div>}
       {manifest && Object.keys(manifest.openSocket).length > 0 && (
         <div className="manifest-section">
           <hr />
-          <h4 style={{ margin: '8px 0 4px 0', fontSize: '14px' }}>功能清单</h4>
-          <FunctionListParser
-            manifest={manifest}
-            onInvoke={handleInvoke}
-            compact={true}
-          />
+          <div className="manifest-toolbar">
+            <h4 style={{ margin: '8px 0 4px 0', fontSize: '14px' }}>功能清单</h4>
+            <div className="view-toggle">
+              <button
+                className={`view-btn ${viewMode === 'interactive' ? 'active' : ''}`}
+                onClick={() => setViewMode('interactive')}
+              >
+                交互
+              </button>
+              <button
+                className={`view-btn ${viewMode === 'docs' ? 'active' : ''}`}
+                onClick={() => setViewMode('docs')}
+              >
+                文档
+              </button>
+            </div>
+          </div>
+          {viewMode === 'interactive' && (
+            <FunctionListParser manifest={manifest} onInvoke={handleInvoke} compact={true} />
+          )}
+          {viewMode === 'docs' && (
+            <FunctionListDoc manifest={manifest} />
+          )}
         </div>
       )}
       {manifest && Object.keys(manifest.openSocket).length === 0 && (
