@@ -157,7 +157,7 @@ const NodePreview: React.FC<NodePreviewProps> = ({ nodeId }) => {
             </div>
           </div>
           {viewMode === 'interactive' && (
-            <FunctionListParser manifest={manifest} onInvoke={handleInvoke} compact={true} />
+            <FunctionListParser manifest={manifest} onInvoke={handleInvoke} />
           )}
           {viewMode === 'docs' && (
             <FunctionListDoc manifest={manifest} />

@@ -1,4 +1,3 @@
-// src/components/FunctionListParser/index.tsx
 import React, { useState } from 'react';
 import type { FunctionManifest, OpenSocketFunc } from './types';
 import styles from './FunctionListParser.module.css';
@@ -6,13 +5,11 @@ import styles from './FunctionListParser.module.css';
 interface FunctionListParserProps {
   manifest: FunctionManifest;
   onInvoke: (func: OpenSocketFunc, args: Record<string, string>) => Promise<void>;
-  compact?: boolean; // 紧凑模式，用于预览窗格
 }
 
 const FunctionListParser: React.FC<FunctionListParserProps> = ({
   manifest,
   onInvoke,
-  compact = false,
 }) => {
   const [selectedFuncName, setSelectedFuncName] = useState<string | null>(null);
   const [inputValues, setInputValues] = useState<Record<string, string>>({});
@@ -20,6 +17,13 @@ const FunctionListParser: React.FC<FunctionListParserProps> = ({
 
   const funcNames = Object.keys(manifest.openSocket);
   const selectedFunc = selectedFuncName ? manifest.openSocket[selectedFuncName] : null;
+
+  // 默认选中第一个功能（如果有）
+  React.useEffect(() => {
+    if (funcNames.length > 0 && !selectedFuncName) {
+      setSelectedFuncName(funcNames[0]);
+    }
+  }, [funcNames, selectedFuncName]);
 
   const handleArgChange = (argName: string, value: string) => {
     setInputValues(prev => ({ ...prev, [argName]: value }));
@@ -110,54 +114,35 @@ const FunctionListParser: React.FC<FunctionListParserProps> = ({
     return null;
   };
 
-  if (compact && !selectedFunc) {
-    // 紧凑模式下，若未选中任何功能，只显示功能列表
-    return (
-      <div className={styles.compactContainer}>
-        <div className={styles.funcListCompact}>
-          {funcNames.map(name => (
-            <button
-              key={name}
-              className={styles.funcChip}
-              onClick={() => setSelectedFuncName(name)}
-            >
-              {name}
-            </button>
-          ))}
-        </div>
-        {selectedFunc && (
-          <div className={styles.funcDetailCompact}>
-            {/* 显示参数和调用按钮，这里简化，但实际可以展开 */}
-          </div>
-        )}
-      </div>
-    );
+  if (funcNames.length === 0) {
+    return <div className={styles.noFunc}>该节点暂无可用功能</div>;
   }
 
   return (
     <div className={styles.parserContainer}>
+      {/* 上方：功能列表（横向排列） */}
       <div className={styles.funcList}>
-        <h4>功能列表</h4>
-        <ul>
-          {funcNames.map(name => (
-            <li
-              key={name}
-              className={selectedFuncName === name ? styles.active : ''}
-              onClick={() => {
-                setSelectedFuncName(name);
-                setInputValues({});
-              }}
-            >
-              {name}
-              <span className={styles.funcDesc}>{manifest.openSocket[name].description}</span>
-            </li>
-          ))}
-        </ul>
+        {funcNames.map(name => (
+          <button
+            key={name}
+            className={`${styles.funcChip} ${selectedFuncName === name ? styles.active : ''}`}
+            onClick={() => {
+              setSelectedFuncName(name);
+              setInputValues({});
+            }}
+          >
+            {name}
+          </button>
+        ))}
       </div>
 
+      {/* 下方：选中功能的详情 */}
       {selectedFunc && (
         <div className={styles.funcDetail}>
-          <h4>参数配置</h4>
+          {/* 描述行 */}
+          {selectedFunc.description && (
+            <div className={styles.funcDescription}>{selectedFunc.description}</div>
+          )}
           <div className={styles.argsForm}>
             {Object.entries(selectedFunc.args).map(([name, arg]) => renderArg(name, arg))}
           </div>

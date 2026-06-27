@@ -1,61 +1,56 @@
+/* 容器：垂直布局 */
 .parserContainer {
   display: flex;
-  gap: 16px;
+  flex-direction: column;
+  gap: 12px;
   padding: 8px 0;
   font-size: 13px;
 }
 
+/* ---- 上方功能列表（横向） ---- */
 .funcList {
-  flex: 1;
-  min-width: 120px;
-  border-right: 1px solid var(--border-light);
-  padding-right: 12px;
-}
-
-.funcList h4 {
-  margin: 0 0 8px 0;
-  font-weight: 500;
-  color: var(--text-secondary);
-}
-
-.funcList ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.funcList li {
-  padding: 4px 8px;
-  margin-bottom: 2px;
-  cursor: pointer;
-  border-radius: 4px;
-  transition: background 0.15s;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 0;
 }
 
-.funcList li:hover {
-  background: var(--bg-hover);
-}
-
-.funcList li.active {
-  background: var(--bg-hover);
+.funcChip {
+  background: var(--bg-body);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 4px 14px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  color: var(--text-primary);
   font-weight: 500;
+  white-space: nowrap;
 }
 
-.funcDesc {
-  font-size: 11px;
-  color: var(--text-secondary);
+.funcChip:hover {
+  background: var(--bg-hover);
+  border-color: var(--text-secondary);
 }
 
+.funcChip.active {
+  background: var(--btn-primary-bg);
+  border-color: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+}
+
+/* ---- 下方详情区域 ---- */
 .funcDetail {
-  flex: 2;
+  border-top: 1px solid var(--border-light);
+  padding-top: 12px;
 }
 
-.funcDetail h4 {
-  margin: 0 0 8px 0;
-  font-weight: 500;
+.funcDescription {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  padding: 4px 0;
+  border-bottom: 1px dashed var(--border-light);
 }
 
 .argsForm {
@@ -143,30 +138,13 @@
   border-bottom: 1px solid var(--border-light);
 }
 
-/* 紧凑模式（用于预览窗格下方） */
+.noFunc {
+  color: var(--text-secondary);
+  font-style: italic;
+  padding: 8px 0;
+}
+
+/* 可选：紧凑模式微调（保留，但不再使用） */
 .compactContainer {
-  margin-top: 12px;
-  border-top: 1px solid var(--border-light);
-  padding-top: 8px;
-}
-
-.funcListCompact {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.funcChip {
-  background: var(--bg-body);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 2px 12px;
-  font-size: 11px;
-  cursor: pointer;
-  transition: background 0.15s;
-  color: var(--text-primary);
-}
-
-.funcChip:hover {
-  background: var(--bg-hover);
+  /* 已废弃，保留以防引用 */
 }
