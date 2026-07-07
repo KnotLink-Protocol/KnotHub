@@ -94,7 +94,9 @@ function PreviewBar() {
       <div className="preview-title">预览面板</div>
       <div className="preview-content">
         {!previewData && <p>点击中间列表中的项目，此处将显示详细信息。</p>}
-        {previewData?.type === 'node' && <NodePreview nodeId={previewData.id} />}
+        {previewData?.type === 'node' && (
+          <NodePreview nodeId={previewData.id} nodeType={previewData.nodeType || 'plugin'} />
+        )}
         {previewData?.type === 'link' && <LinkPreview linkId={previewData.id} />}
         {previewData?.type === 'port' && <PortPreview port={previewData.id} />}
         {previewData?.type === 'recipe' && <RecipePreview data={previewData.details} />}

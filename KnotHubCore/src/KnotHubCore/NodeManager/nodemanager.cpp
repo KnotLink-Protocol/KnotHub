@@ -1,6 +1,5 @@
 #include "nodemanager.h"
 #include "nodeloader.h"
-#include "../RecipeManager/recipemanager.h"
 #include <QDir>
 #include <QFile>
 #include <QJsonDocument>
@@ -8,18 +7,15 @@
 #include <QJsonArray>
 #include <QDebug>
 #include <QThread>
-#include <QSettings>
 #include "kludf.h"
 
 PluginManager::PluginManager(QObject *parent)
     : QObject(parent)
     , m_pluginsRoot(QDir::currentPath() + "/Plugins")
 {
-    m_openSocketResponser = new OpenSocketResponser("0x00000002","0x00000011");
+    m_openSocketResponser = new OpenSocketResponser("0x00000002", "0x00000011");
     connect(m_openSocketResponser, &OpenSocketResponser::receivedData,
             this, &PluginManager::onKnotLinkRecieveData);
-
-    scanStandaloneNodes();
 }
 
 void PluginManager::setPluginsRoot(const QString &path)
@@ -31,6 +27,10 @@ void PluginManager::setPluginsRoot(const QString &path)
         qWarning() << "Plugins root does not exist:" << path;
 }
 
+// ═══════════════════════════════════════════════════════════════
+// 插件列表刷新
+// ═══════════════════════════════════════════════════════════════
+
 QStringList PluginManager::refreshPluginList()
 {
     QDir pluginsDir(m_pluginsRoot);
@@ -39,7 +39,6 @@ QStringList PluginManager::refreshPluginList()
         return QStringList();
     }
 
-    // 获取所有子文件夹（不递归）
     QFileInfoList subDirs = pluginsDir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot);
     QStringList currentPluginNames;
     QMap<QString, PluginInfo> newInfos;
@@ -71,89 +70,46 @@ QStringList PluginManager::refreshPluginList()
         }
 
         PluginInfo info = PluginInfo::fromJson(doc.object(), folderPath);
-        qDebug() << "Parsed plugin:" << info.pluginName << "exe_path:" << info.exePath << "abs:" << info.absoluteExePath();
         if (!info.isValid()) {
-            qWarning() << "Invalid plugin info in" << manifestPath
-                       << "- pluginName empty?" << info.pluginName.isEmpty()
-                       << "exePath empty?" << info.exePath.isEmpty()
-                       << "exe exists?" << QFile::exists(info.absoluteExePath());
-            continue;
-        }
-
-        if (!info.isValid()) {
-            qWarning() << "Invalid plugin info in" << manifestPath << ": missing name or exe";
+            qWarning() << "Invalid plugin info in" << manifestPath;
             continue;
         }
         newInfos[info.pluginName] = info;
         currentPluginNames << info.pluginName;
     }
 
-    // 找出需要移除的插件（已删除的）
+    // 移除已删除的插件
     QStringList oldNames = m_pluginInfos.keys();
     for (const QString &name : oldNames) {
         if (!newInfos.contains(name)) {
-            // 如果正在运行，先停止
-            if (isPluginRunning(name)) {
+            if (isPluginRunning(name))
                 stopPlugin(name);
-            }
             removeLoader(name);
             m_pluginInfos.remove(name);
             emit pluginStopped(name);
         }
     }
 
-    // 新增或更新的插件
+    // 新增或更新
     bool changed = false;
     for (const QString &name : newInfos.keys()) {
-        if (!m_pluginInfos.contains(name) || m_pluginInfos[name].absoluteExePath() != newInfos[name].absoluteExePath()) {
+        if (!m_pluginInfos.contains(name) ||
+            m_pluginInfos[name].absoluteExePath() != newInfos[name].absoluteExePath()) {
             m_pluginInfos[name] = newInfos[name];
-            // 确保 loader 存在（但尚未启动）
             getOrCreateLoader(name);
             changed = true;
         }
     }
 
-    if (changed) {
+    if (changed)
         emit pluginListChanged(m_pluginInfos.keys());
-    }
 
     return currentPluginNames;
 }
 
-void PluginManager::scanStandaloneNodes()
-{
-    m_standaloneNodes.clear();
-    QSettings settings("HKEY_CURRENT_USER\\Software\\KnotLink\\StandaloneNodes",
-                       QSettings::NativeFormat);
-    QStringList appIds = settings.childKeys();
-
-    for (const QString &appId : appIds) {
-        QString installPath = settings.value(appId).toString();
-        QDir dir(installPath);
-        if (!dir.exists()) continue;
-
-        // 读 FuncList.json 取名称
-        QString funcListPath = dir.absoluteFilePath("FuncList.json");
-        QString name = appId; // 默认用 appId
-        if (QFile::exists(funcListPath)) {
-            QFile file(funcListPath);
-            if (file.open(QIODevice::ReadOnly)) {
-                QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
-                if (doc.isObject()) {
-                    name = doc.object().value("appName").toString(appId);
-                }
-                file.close();
-            }
-        }
-
-        StandaloneNode node;
-        node.appId = appId;
-        node.installPath = installPath;
-        node.name = name;
-        m_standaloneNodes.append(node);
-        qDebug() << "Standalone node found:" << appId << "->" << installPath;
-    }
-}
+// ═══════════════════════════════════════════════════════════════
+// Loader 管理
+// ═══════════════════════════════════════════════════════════════
 
 NodeLoader* PluginManager::getOrCreateLoader(const QString &pluginName)
 {
@@ -163,7 +119,6 @@ NodeLoader* PluginManager::getOrCreateLoader(const QString &pluginName)
     NodeLoader *loader = new NodeLoader(this);
     m_pluginLoaders[pluginName] = loader;
 
-    // 连接信号以便转发
     connect(loader, &NodeLoader::processFinished,
             this, [this, pluginName](int exitCode, QProcess::ExitStatus status) {
         onPluginProcessFinished(pluginName, exitCode, status);
@@ -177,11 +132,13 @@ NodeLoader* PluginManager::getOrCreateLoader(const QString &pluginName)
 
 void PluginManager::removeLoader(const QString &pluginName)
 {
-    if (m_pluginLoaders.contains(pluginName)) {
-        NodeLoader *loader = m_pluginLoaders.take(pluginName);
-        delete loader;
-    }
+    if (m_pluginLoaders.contains(pluginName))
+        delete m_pluginLoaders.take(pluginName);
 }
+
+// ═══════════════════════════════════════════════════════════════
+// 启停
+// ═══════════════════════════════════════════════════════════════
 
 bool PluginManager::startPlugin(const QString &pluginName, const QStringList &args)
 {
@@ -197,23 +154,20 @@ bool PluginManager::startPlugin(const QString &pluginName, const QStringList &ar
     }
 
     PluginInfo info = m_pluginInfos[pluginName];
-    QString exe = info.absoluteExePath();
-    loader->start(exe, args);
+    loader->start(info.absoluteExePath(), args);
     if (loader->statuscheck()) {
         emit pluginStarted(pluginName);
         return true;
-    } else {
-        emit pluginError(pluginName, "Failed to start process");
-        return false;
     }
+    emit pluginError(pluginName, "Failed to start process");
+    return false;
 }
 
 bool PluginManager::startPluginByAppId(const QString &appId, const QStringList &args)
 {
     for (auto it = m_pluginInfos.begin(); it != m_pluginInfos.end(); ++it) {
-        if (it->appId == appId) {
+        if (it->appId == appId)
             return startPlugin(it.key(), args);
-        }
     }
     emit pluginError(appId, "No plugin with given app_id");
     return false;
@@ -222,7 +176,7 @@ bool PluginManager::startPluginByAppId(const QString &appId, const QStringList &
 bool PluginManager::stopPlugin(const QString &pluginName)
 {
     if (!m_pluginLoaders.contains(pluginName))
-        return true; // 未加载过，视为已停止
+        return true;
 
     NodeLoader *loader = m_pluginLoaders[pluginName];
     if (!loader->statuscheck())
@@ -232,18 +186,16 @@ bool PluginManager::stopPlugin(const QString &pluginName)
     if (!loader->statuscheck()) {
         emit pluginStopped(pluginName);
         return true;
-    } else {
-        emit pluginError(pluginName, "Failed to stop");
-        return false;
     }
+    emit pluginError(pluginName, "Failed to stop");
+    return false;
 }
 
 bool PluginManager::stopPluginByAppId(const QString &appId)
 {
     for (auto it = m_pluginInfos.begin(); it != m_pluginInfos.end(); ++it) {
-        if (it->appId == appId) {
+        if (it->appId == appId)
             return stopPlugin(it.key());
-        }
     }
     return false;
 }
@@ -258,32 +210,28 @@ bool PluginManager::restartPlugin(const QString &pluginName)
 
 void PluginManager::startAllPlugins()
 {
-    for (const QString &name : m_pluginInfos.keys()) {
+    for (const QString &name : m_pluginInfos.keys())
         startPlugin(name);
-    }
 }
 
 void PluginManager::stopAllPlugins()
 {
-    for (const QString &name : m_pluginInfos.keys()) {
+    for (const QString &name : m_pluginInfos.keys())
         stopPlugin(name);
-    }
 }
 
 void PluginManager::startAutoStartPlugins()
 {
     for (auto it = m_pluginInfos.begin(); it != m_pluginInfos.end(); ++it) {
-        if (it->autoStart) {
+        if (it->autoStart)
             startPlugin(it.key());
-        }
     }
 }
 
 bool PluginManager::isPluginRunning(const QString &pluginName) const
 {
-    if (!m_pluginLoaders.contains(pluginName))
-        return false;
-    return m_pluginLoaders[pluginName]->statuscheck();
+    return m_pluginLoaders.contains(pluginName) &&
+           m_pluginLoaders[pluginName]->statuscheck();
 }
 
 PluginInfo PluginManager::pluginInfo(const QString &pluginName) const
@@ -291,18 +239,52 @@ PluginInfo PluginManager::pluginInfo(const QString &pluginName) const
     return m_pluginInfos.value(pluginName);
 }
 
-void PluginManager::onPluginProcessFinished(const QString &pluginName, int exitCode, QProcess::ExitStatus exitStatus)
+// ═══════════════════════════════════════════════════════════════
+// 进程信号
+// ═══════════════════════════════════════════════════════════════
+
+void PluginManager::onPluginProcessFinished(const QString &pluginName,
+    int exitCode, QProcess::ExitStatus exitStatus)
 {
-    Q_UNUSED(exitCode);
-    Q_UNUSED(exitStatus);
+    Q_UNUSED(exitCode); Q_UNUSED(exitStatus);
     emit pluginStopped(pluginName);
 }
 
-void PluginManager::onPluginProcessError(const QString &pluginName, QProcess::ProcessError error, const QString &errorString)
+void PluginManager::onPluginProcessError(const QString &pluginName,
+    QProcess::ProcessError error, const QString &errorString)
 {
     Q_UNUSED(error);
     emit pluginError(pluginName, errorString);
 }
+
+// ═══════════════════════════════════════════════════════════════
+// 导出
+// ═══════════════════════════════════════════════════════════════
+
+QByteArray PluginManager::exportPluginListToJson()
+{
+    QJsonArray pluginsArray;
+    for (auto it = m_pluginInfos.begin(); it != m_pluginInfos.end(); ++it) {
+        const PluginInfo &info = it.value();
+        QJsonObject obj;
+        obj["plugin_name"] = info.pluginName;
+        obj["author"]      = info.author;
+        obj["app_id"]      = info.appId;
+        obj["version"]     = info.version;
+        obj["status"]      = isPluginRunning(info.pluginName) ? "运行中" : "停止";
+        obj["node_type"]   = "plugin";
+        obj["description"] = info.description;
+        obj["auto_start"]  = info.autoStart ? "true" : "false";
+        pluginsArray.append(obj);
+    }
+    QJsonObject root;
+    root["plugins"] = pluginsArray;
+    return QJsonDocument(root).toJson();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 配置
+// ═══════════════════════════════════════════════════════════════
 
 bool PluginManager::updatePluginConfig(const QString &pluginName, const QString &autostart)
 {
@@ -310,199 +292,8 @@ bool PluginManager::updatePluginConfig(const QString &pluginName, const QString 
         return false;
 
     PluginInfo &info = m_pluginInfos[pluginName];
-
-    // 将字符串 "true"/"false" 转换为 bool 值
     info.autoStart = (autostart.compare("true", Qt::CaseInsensitive) == 0);
-
-    // 保存到 manifest 文件
     return savePluginManifest(info);
-}
-
-QByteArray PluginManager::exportPluginListToJson()
-{
-    QJsonArray pluginsArray;
-
-    // 插入式节点
-    for (auto it = m_pluginInfos.begin(); it != m_pluginInfos.end(); ++it) {
-        const PluginInfo &info = it.value();
-        QJsonObject obj;
-        obj["plugin_name"] = info.pluginName;
-        obj["author"] = info.author;
-        obj["app_id"] = info.appId;
-        obj["version"] = info.version;
-        obj["status"] = isPluginRunning(info.pluginName) ? "运行中" : "停止";
-        obj["node_type"] = "plugin";
-        pluginsArray.append(obj);
-    }
-
-    // 独立式节点
-    for (const auto &node : m_standaloneNodes) {
-        QJsonObject obj;
-        obj["plugin_name"] = node.appId;
-        obj["app_id"] = node.appId;
-        obj["author"] = "";
-        obj["version"] = "";
-        obj["status"] = "独立运行";
-        obj["node_type"] = "standalone";
-        obj["name"] = node.name;
-        pluginsArray.append(obj);
-    }
-
-    QJsonObject root;
-    root["plugins"] = pluginsArray;
-    return QJsonDocument(root).toJson();
-}
-
-void PluginManager::onKnotLinkRecieveData(const QString &data, QString questionID){
-    KLKVMap kvMap;
-    kvMap.deserialize(data);
-
-    qDebug() << "反序列化结果：" << kvMap;
-
-    QString relpy_str = "ok";
-    QString cmd = kvMap["cmd"];
-
-    // 配方命令转发
-    if (cmd.startsWith("recipe_") || cmd == "get_recipe_tree") {
-        if (m_recipeManager) {
-            relpy_str = m_recipeManager->handleCommand(cmd, kvMap);
-        } else {
-            relpy_str = "error: recipe manager not available";
-        }
-        m_openSocketResponser->sendBack(relpy_str, questionID);
-        return;
-    }
-
-    if(cmd == "get_plugin_list")
-    {
-        QByteArray json = exportPluginListToJson();
-        qDebug() << data << json;
-        relpy_str = QString::fromUtf8(json);
-    }else if(cmd == "get_detail")
-    {
-        QString plugin_name = kvMap["plugin_name"];
-        PluginInfo info = this->pluginInfo(plugin_name);
-        if (info.isValid()) {
-            QByteArray jsonData = info.toJson(isPluginRunning(plugin_name)?"运行中":"停止");
-            relpy_str = QString::fromUtf8(jsonData);
-            qDebug() << relpy_str;
-        } else {
-            // 未找到
-        }
-    }
-    else if (cmd == "plugin_control")
-    {
-        QString action = kvMap["action"];
-        QString plugin_name = kvMap["plugin_name"];
-        bool success = false;
-        QString errorMsg;
-
-        if (plugin_name == "all")
-        {
-            if (action == "start")
-            {
-                startAllPlugins();
-                success = true;
-            }
-            else if (action == "stop")
-            {
-                stopAllPlugins();
-                success = true;
-            }
-            else if (action == "restart")
-            {
-                stopAllPlugins();
-                startAllPlugins();
-                success = true;
-            }
-            else
-            {
-                errorMsg = "Unsupported action: " + action + " for all plugins";
-            }
-        }
-        else
-        {
-            if (action == "start")
-            {
-                success = startPlugin(plugin_name);
-                if (!success) errorMsg = "Failed to start plugin: " + plugin_name;
-            }
-            else if (action == "stop")
-            {
-                success = stopPlugin(plugin_name);
-                if (!success) errorMsg = "Failed to stop plugin: " + plugin_name;
-            }
-            else if (action == "restart")
-            {
-                success = restartPlugin(plugin_name);
-                if (!success) errorMsg = "Failed to restart plugin: " + plugin_name;
-            }
-            else
-            {
-                errorMsg = "Unsupported action: " + action;
-            }
-        }
-
-        // 构造响应 JSON
-        QJsonObject response;
-        if (success && errorMsg.isEmpty())
-        {
-            relpy_str = "ok";
-            response["status"] = "ok";
-            response["message"] = QString("Plugin %1 %succeeded").arg(plugin_name).arg(
-                        (action == "start" ? "start " : action == "stop" ? "stop " : "restart "));
-        }
-        else
-        {
-            relpy_str = errorMsg.isEmpty() ? "Unknown error" : errorMsg;
-            response["status"] = "error";
-            response["error"] = errorMsg.isEmpty() ? "Unknown error" : errorMsg;
-        }
-//        relpy_str = QString::fromUtf8(QJsonDocument(response).toJson());
-    }
-    else if(cmd=="update_config")
-    {
-        QString pluginName = kvMap["plugin_name"];
-        QString autostart  = kvMap["autostart"];
-        bool success = updatePluginConfig(pluginName, autostart);
-        relpy_str=success?"successful":"failed";
-    }
-    else if (cmd == "get_funclist")
-    {
-        QString plugin_name = kvMap["plugin_name"];
-        if (plugin_name.isEmpty()) {
-            relpy_str = "Error: missing plugin_name";
-        } else {
-            PluginInfo info = this->pluginInfo(plugin_name);
-            if (!info.isValid()) {
-                relpy_str = "Error: plugin not found or invalid";
-            } else {
-                QString funcListPath = info.folderPath + "/FuncList.json";
-                QFile file(funcListPath);
-                if (!file.exists()) {
-                    relpy_str = "Error: FuncList.json not found";
-                } else if (!file.open(QIODevice::ReadOnly)) {
-                    relpy_str = "Error: cannot open FuncList.json";
-                } else {
-                    QByteArray content = file.readAll();
-                    relpy_str = QString::fromUtf8(content);   // 直接返回原始 JSON 文本
-                    file.close();
-                }
-            }
-        }
-    }
-    else if(cmd=="refresh")
-    {
-        refreshPluginList();
-        scanStandaloneNodes();
-        QByteArray json = exportPluginListToJson();
-        relpy_str = QString::fromUtf8(json);
-    }
-
-
-    QString s = "OK";
-    //    operationInfo.deserialize(s);
-    m_openSocketResponser->sendBack(relpy_str,questionID);
 }
 
 bool PluginManager::savePluginManifest(const QString &pluginName)
@@ -517,29 +308,117 @@ bool PluginManager::savePluginManifest(const PluginInfo &info)
     QString manifestPath = info.folderPath + "/plugin_manifest.json";
     QFile file(manifestPath);
     if (!file.open(QIODevice::WriteOnly)) {
-        qWarning() << "Cannot open manifest for writing:" << manifestPath;
+        qWarning() << "Cannot write manifest:" << manifestPath;
         return false;
     }
 
-    // 将 PluginInfo 转换为 QJsonObject
     QJsonObject obj;
     obj["plugin_name"] = info.pluginName;
-    obj["app_id"] = info.appId;
-    obj["author"] = info.author;
+    obj["app_id"]      = info.appId;
+    obj["author"]      = info.author;
     obj["description"] = info.description;
-    obj["auto_start"] = info.autoStart ? "true" : "false";
-    obj["exe_path"] = info.exePath;
-    obj["version"] = info.version;
+    obj["auto_start"]  = info.autoStart ? "true" : "false";
+    obj["exe_path"]    = info.exePath;
+    obj["version"]     = info.version;
 
-    QJsonDocument doc(obj);
-    QByteArray data = doc.toJson(QJsonDocument::Indented); // 保持可读性
+    file.write(QJsonDocument(obj).toJson(QJsonDocument::Indented));
+    file.close();
+    return true;
+}
 
-    if (file.write(data) == -1) {
-        qWarning() << "Failed to write manifest:" << manifestPath;
-        return false;
+// ═══════════════════════════════════════════════════════════════
+// KnotLink 消息处理 — socketID: 0x00000011（仅插入式节点）
+// ═══════════════════════════════════════════════════════════════
+
+void PluginManager::onKnotLinkRecieveData(const QString &data, QString questionID)
+{
+    KLKVMap kvMap;
+    kvMap.deserialize(data);
+
+    qDebug() << "[Plugin] KL data:" << kvMap;
+
+    QString cmd = kvMap["cmd"];
+    QString reply = "ok";
+
+    if (cmd == "get_plugin_list") {
+        reply = QString::fromUtf8(exportPluginListToJson());
+        qDebug() << reply;
+
+    } else if (cmd == "get_detail") {
+        QString plugin_name = kvMap["plugin_name"];
+        PluginInfo info = pluginInfo(plugin_name);
+        if (info.isValid()) {
+            reply = QString::fromUtf8(
+                info.toJson(isPluginRunning(plugin_name) ? "运行中" : "停止"));
+        } else {
+            reply = "Error: plugin not found";
+        }
+
+    } else if (cmd == "plugin_control") {
+        QString action      = kvMap["action"];
+        QString plugin_name = kvMap["plugin_name"];
+        bool    success     = false;
+        QString errorMsg;
+
+        if (plugin_name == "all") {
+            if (action == "start") {
+                startAllPlugins(); success = true;
+            } else if (action == "stop") {
+                stopAllPlugins();  success = true;
+            } else if (action == "restart") {
+                stopAllPlugins();  startAllPlugins(); success = true;
+            } else {
+                errorMsg = "Unsupported action: " + action;
+            }
+        } else {
+            if (action == "start") {
+                success = startPlugin(plugin_name);
+            } else if (action == "stop") {
+                success = stopPlugin(plugin_name);
+            } else if (action == "restart") {
+                success = restartPlugin(plugin_name);
+            } else {
+                errorMsg = "Unsupported action: " + action;
+            }
+            if (!success && errorMsg.isEmpty())
+                errorMsg = "Failed to " + action + " plugin: " + plugin_name;
+        }
+        reply = success ? "ok" : ("error: " + errorMsg);
+
+    } else if (cmd == "update_config") {
+        QString pluginName = kvMap["plugin_name"];
+        QString autostart  = kvMap["autostart"];
+        reply = updatePluginConfig(pluginName, autostart) ? "successful" : "failed";
+
+    } else if (cmd == "get_funclist") {
+        QString plugin_name = kvMap["plugin_name"];
+        if (plugin_name.isEmpty()) {
+            reply = "Error: missing plugin_name";
+        } else {
+            PluginInfo info = pluginInfo(plugin_name);
+            if (!info.isValid()) {
+                reply = "Error: plugin not found";
+            } else {
+                QString path = info.folderPath + "/FuncList.json";
+                QFile file(path);
+                if (!file.exists()) {
+                    reply = "Error: FuncList.json not found";
+                } else if (!file.open(QIODevice::ReadOnly)) {
+                    reply = "Error: cannot open FuncList.json";
+                } else {
+                    reply = QString::fromUtf8(file.readAll());
+                    file.close();
+                }
+            }
+        }
+
+    } else if (cmd == "refresh") {
+        refreshPluginList();
+        reply = QString::fromUtf8(exportPluginListToJson());
+
+    } else {
+        reply = "Error: unknown command: " + cmd;
     }
 
-    file.close();
-    qDebug() << "Saved manifest for plugin:" << info.pluginName;
-    return true;
+    m_openSocketResponser->sendBack(reply, questionID);
 }

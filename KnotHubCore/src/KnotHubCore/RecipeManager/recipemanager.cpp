@@ -8,11 +8,15 @@
 #include <QCoreApplication>
 #include <QTemporaryDir>
 #include "../quazip/JlCompress.h"
+#include <KnotLinkLib>
 
 RecipeManager::RecipeManager(QObject *parent)
     : QObject(parent)
     , m_recipesRoot(QCoreApplication::applicationDirPath() + "/Recipes")
 {
+    m_responder = new OpenSocketResponser("0x00000002", "0x00000013", this);
+    connect(m_responder, &OpenSocketResponser::receivedData,
+            this, &RecipeManager::onKnotLinkData);
 }
 
 RecipeManager::~RecipeManager()
@@ -207,39 +211,52 @@ bool RecipeManager::deleteRecipe(const QString &filePath)
     return QFile::remove(filePath);
 }
 
-// ── KLUDF 命令 ──────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// KnotLink 消息处理 — socketID: 0x00000013（配方专用）
+// ═══════════════════════════════════════════════════════════════
 
-QString RecipeManager::handleCommand(const QString &cmd, const KLKVMap &kvMap)
+void RecipeManager::onKnotLinkData(const QString &data, const QString &questionID)
 {
+    KLKVMap kvMap;
+    kvMap.deserialize(data);
+
+    qDebug() << "[Recipe] KL data:" << kvMap;
+
+    QString cmd = kvMap["cmd"];
+    QString reply;
+
     if (cmd == "get_recipe_tree") {
-        return QString::fromUtf8(scanTree());
-    }
-    else if (cmd == "recipe_run") {
+        reply = QString::fromUtf8(scanTree());
+
+    } else if (cmd == "recipe_run") {
         QString path = kvMap["file_path"];
-        return runRecipe(path) ? "ok" : "error: failed to run recipe";
-    }
-    else if (cmd == "recipe_stop") {
+        reply = runRecipe(path) ? "ok" : "error: failed to run recipe";
+
+    } else if (cmd == "recipe_stop") {
         QString path = kvMap["file_path"];
-        return stopRecipe(path) ? "ok" : "error: failed to stop recipe";
-    }
-    else if (cmd == "recipe_status") {
+        reply = stopRecipe(path) ? "ok" : "error: failed to stop recipe";
+
+    } else if (cmd == "recipe_status") {
         QString path = kvMap["file_path"];
-        return isRunning(path) ? "running" : "stopped";
-    }
-    else if (cmd == "recipe_read") {
+        reply = isRunning(path) ? "running" : "stopped";
+
+    } else if (cmd == "recipe_read") {
         QString path = kvMap["file_path"];
         QByteArray content = readRecipe(path);
-        return content.isEmpty() ? "error: cannot read file" : QString::fromUtf8(content);
-    }
-    else if (cmd == "recipe_save") {
+        reply = content.isEmpty() ? "error: cannot read file" : QString::fromUtf8(content);
+
+    } else if (cmd == "recipe_save") {
         QString path = kvMap["file_path"];
         QString content = kvMap["content"];
-        return saveRecipe(path, content) ? "ok" : "error: cannot save file";
-    }
-    else if (cmd == "recipe_delete") {
+        reply = saveRecipe(path, content) ? "ok" : "error: cannot save file";
+
+    } else if (cmd == "recipe_delete") {
         QString path = kvMap["file_path"];
-        return deleteRecipe(path) ? "ok" : "error: cannot delete";
+        reply = deleteRecipe(path) ? "ok" : "error: cannot delete";
+
+    } else {
+        reply = "Error: unknown command: " + cmd;
     }
 
-    return QString(); // 不是配方命令
+    m_responder->sendBack(reply, questionID);
 }

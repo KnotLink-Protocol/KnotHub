@@ -8,6 +8,7 @@ import FunctionListDoc from '../FunctionListParser/FunctionListDoc';
 interface NodeDetail {
   pluginName: string;
   appId: string;
+  name?: string;
   author: string;
   version: string;
   description: string;
@@ -17,9 +18,15 @@ interface NodeDetail {
 
 interface NodePreviewProps {
   nodeId: string;
+  nodeType?: string;  // 'plugin' | 'standalone'
 }
 
-const NodePreview: React.FC<NodePreviewProps> = ({ nodeId }) => {
+const NodePreview: React.FC<NodePreviewProps> = ({ nodeId, nodeType = 'plugin' }) => {
+  const isStandalone = nodeType === 'standalone';
+  const detailCmd = isStandalone ? 'get_standalone_detail' : 'get_node_detail';
+  const manifestCmd = isStandalone ? 'get_standalone_funclist' : 'get_node_manifest';
+  const autostartCmd = isStandalone ? null : 'set_node_autostart'; // 独立式暂不支持远端改 autostart
+
   const [detail, setDetail] = useState<NodeDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +43,7 @@ const NodePreview: React.FC<NodePreviewProps> = ({ nodeId }) => {
   const fetchDetail = async () => {
     try {
       setLoading(true);
-      const data = await invoke<NodeDetail>('get_node_detail', { nodeId });
+      const data = await invoke<NodeDetail>(detailCmd, { nodeId });
       setDetail(data);
       setError(null);
     } catch (err: any) {
@@ -55,7 +62,7 @@ const NodePreview: React.FC<NodePreviewProps> = ({ nodeId }) => {
   setManifest(null);          // 立即清除旧清单，避免残留
   setManifestError(null);
   try {
-    const data = await invoke<FunctionManifest>('get_node_manifest', { nodeId });
+    const data = await invoke<FunctionManifest>(manifestCmd, { nodeId });
     setManifest(data);
   } catch (err: any) {
     console.error('get_node_manifest 错误详情:', err);
@@ -66,10 +73,10 @@ const NodePreview: React.FC<NodePreviewProps> = ({ nodeId }) => {
 };
 
   const handleAutoStartChange = async (checked: boolean) => {
-    if (!detail) return;
+    if (!detail || !autostartCmd) return;
     try {
       setUpdating(true);
-      await invoke('set_node_autostart', { nodeId, autoStart: checked });
+      await invoke(autostartCmd, { nodeId, autoStart: checked });
       setDetail({ ...detail, autoStart: checked });
     } catch (err: any) {
       alert(`设置失败: ${err.message}`);
@@ -101,27 +108,32 @@ const NodePreview: React.FC<NodePreviewProps> = ({ nodeId }) => {
   return (
     <div className="node-preview">
       {/* === 原有节点详情（完全不变） === */}
-      <div className="preview-field"><strong>插件名称</strong> {detail.pluginName}</div>
+      <div className="preview-field">
+        <strong>{isStandalone ? '节点名称' : '插件名称'}</strong>
+        {' '}{detail.name || detail.pluginName}
+      </div>
       <div className="preview-field"><strong>应用ID</strong> {detail.appId}</div>
       <div className="preview-field"><strong>作者</strong> {detail.author}</div>
       <div className="preview-field"><strong>版本</strong> {detail.version}</div>
       <div className="preview-field"><strong>描述</strong> {detail.description}</div>
       <div className="preview-field"><strong>状态</strong> {detail.status}</div>
-      <div className="preview-field">
-        <strong>自启动</strong>
-        <div className="switch-wrapper" style={{ display: 'inline-block', marginLeft: '8px', verticalAlign: 'middle' }}>
-          <label className="switch">
-            <input
-              type="checkbox"
-              checked={detail.autoStart}
-              onChange={(e) => handleAutoStartChange(e.target.checked)}
-              disabled={updating}
-            />
-            <span className="slider round"></span>
-          </label>
-          {updating && <span style={{ marginLeft: '8px', fontSize: '12px', color: 'var(--text-secondary)' }}>保存中...</span>}
+      {autostartCmd && (
+        <div className="preview-field">
+          <strong>自启动</strong>
+          <div className="switch-wrapper" style={{ display: 'inline-block', marginLeft: '8px', verticalAlign: 'middle' }}>
+            <label className="switch">
+              <input
+                type="checkbox"
+                checked={detail.autoStart}
+                onChange={(e) => handleAutoStartChange(e.target.checked)}
+                disabled={updating}
+              />
+              <span className="slider round"></span>
+            </label>
+            {updating && <span style={{ marginLeft: '8px', fontSize: '12px', color: 'var(--text-secondary)' }}>保存中...</span>}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* === 功能清单区域 === */}
       {manifestLoading && <div className="manifest-loading">加载功能清单中...</div>}

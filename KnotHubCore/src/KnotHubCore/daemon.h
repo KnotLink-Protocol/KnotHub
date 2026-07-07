@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include "NodeManager/nodemanager.h"
+#include "NodeManager/standalonemanager.h"
 #include "RecipeManager/recipemanager.h"
 
 class Daemon : public QObject
@@ -15,8 +16,10 @@ public:
     bool start();
     void stop();
     bool isRunning() const;
-    PluginManager *pluginManager() const;
-    RecipeManager *recipeManager() const;
+
+    PluginManager    *pluginManager()     const { return m_pluginManager; }
+    StandaloneManager *standaloneManager() const { return m_standaloneManager; }
+    RecipeManager    *recipeManager()     const { return m_recipeManager; }
 
 signals:
     void started();
@@ -24,8 +27,9 @@ signals:
     void logMessage(const QString &message);
 
 private:
-    PluginManager *m_pluginManager;
-    RecipeManager *m_recipeManager;
+    PluginManager     *m_pluginManager;
+    StandaloneManager *m_standaloneManager;
+    RecipeManager     *m_recipeManager;
     bool m_running;
 };
 

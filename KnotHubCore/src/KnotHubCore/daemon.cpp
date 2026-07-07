@@ -5,6 +5,7 @@
 Daemon::Daemon(QObject *parent)
     : QObject(parent)
     , m_pluginManager(nullptr)
+    , m_standaloneManager(nullptr)
     , m_recipeManager(nullptr)
     , m_running(false)
 {
@@ -19,40 +20,69 @@ bool Daemon::start()
 {
     if (m_running) return true;
 
-    // 插件管理器
+    // ── 1. 插入式节点管理器 — socketID: 0x00000011 ──────
     m_pluginManager = new PluginManager(this);
-    m_pluginManager->setPluginsRoot(QCoreApplication::applicationDirPath() + "/Plugins");
+    m_pluginManager->setPluginsRoot(
+        QCoreApplication::applicationDirPath() + "/Plugins");
     m_pluginManager->refreshPluginList();
     m_pluginManager->startAutoStartPlugins();
 
-    connect(m_pluginManager, &PluginManager::pluginListChanged, this, [this](const QStringList &list) {
-        emit logMessage(QString("Plugin list changed: %1 plugins").arg(list.size()));
+    connect(m_pluginManager, &PluginManager::pluginListChanged,
+            this, [this](const QStringList &list) {
+        emit logMessage(QString("Plugins: %1").arg(list.size()));
     });
-    connect(m_pluginManager, &PluginManager::pluginStarted, this, [this](const QString &name) {
+    connect(m_pluginManager, &PluginManager::pluginStarted,
+            this, [this](const QString &name) {
         emit logMessage(QString("Plugin started: %1").arg(name));
     });
-    connect(m_pluginManager, &PluginManager::pluginStopped, this, [this](const QString &name) {
+    connect(m_pluginManager, &PluginManager::pluginStopped,
+            this, [this](const QString &name) {
         emit logMessage(QString("Plugin stopped: %1").arg(name));
     });
-    connect(m_pluginManager, &PluginManager::pluginError, this, [this](const QString &name, const QString &err) {
+    connect(m_pluginManager, &PluginManager::pluginError,
+            this, [this](const QString &name, const QString &err) {
         emit logMessage(QString("Plugin error [%1]: %2").arg(name, err));
     });
 
-    // 配方管理器
-    m_recipeManager = new RecipeManager(this);
-    m_recipeManager->setRecipesRoot(QCoreApplication::applicationDirPath() + "/Recipes");
-    m_pluginManager->setRecipeManager(m_recipeManager);
+    // ── 2. 独立式节点管理器 — socketID: 0x00000012 ──────
+    m_standaloneManager = new StandaloneManager(this);
+    m_standaloneManager->scan();
+    m_standaloneManager->startAutoStartNodes();
 
-    connect(m_recipeManager, &RecipeManager::recipeStarted, this, [this](const QString &path) {
+    connect(m_standaloneManager, &StandaloneManager::nodeListChanged,
+            this, [this]() {
+        emit logMessage("Standalone nodes refreshed");
+    });
+    connect(m_standaloneManager, &StandaloneManager::nodeStarted,
+            this, [this](const QString &appId) {
+        emit logMessage(QString("Standalone node started: %1").arg(appId));
+    });
+    connect(m_standaloneManager, &StandaloneManager::nodeStopped,
+            this, [this](const QString &appId) {
+        emit logMessage(QString("Standalone node stopped: %1").arg(appId));
+    });
+    connect(m_standaloneManager, &StandaloneManager::nodeError,
+            this, [this](const QString &appId, const QString &err) {
+        emit logMessage(QString("Standalone error [%1]: %2").arg(appId, err));
+    });
+
+    // ── 3. 配方管理器 — socketID: 0x00000013 ────────────
+    m_recipeManager = new RecipeManager(this);
+    m_recipeManager->setRecipesRoot(
+        QCoreApplication::applicationDirPath() + "/Recipes");
+
+    connect(m_recipeManager, &RecipeManager::recipeStarted,
+            this, [this](const QString &path) {
         emit logMessage(QString("Recipe started: %1").arg(path));
     });
-    connect(m_recipeManager, &RecipeManager::recipeStopped, this, [this](const QString &path) {
+    connect(m_recipeManager, &RecipeManager::recipeStopped,
+            this, [this](const QString &path) {
         emit logMessage(QString("Recipe stopped: %1").arg(path));
     });
 
     m_running = true;
     emit started();
-    emit logMessage("KnotHub started");
+    emit logMessage("KnotHub started (plugins + standalone + recipes)");
     return true;
 }
 
@@ -70,14 +100,4 @@ void Daemon::stop()
 bool Daemon::isRunning() const
 {
     return m_running;
-}
-
-PluginManager *Daemon::pluginManager() const
-{
-    return m_pluginManager;
-}
-
-RecipeManager *Daemon::recipeManager() const
-{
-    return m_recipeManager;
 }

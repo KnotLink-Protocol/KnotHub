@@ -9,6 +9,8 @@
 #include "../NodeManager/nodeloader.h"
 #include "../KnotLinkLib/kludf.h"
 
+class OpenSocketResponser;
+
 class RecipeManager : public QObject
 {
     Q_OBJECT
@@ -33,19 +35,20 @@ public:
     bool saveRecipe(const QString &filePath, const QString &content);
     bool deleteRecipe(const QString &filePath);
 
-    // KLUDF 命令入口
-    QString handleCommand(const QString &cmd, const KLKVMap &kvMap);
-
 signals:
     void recipeStarted(const QString &filePath);
     void recipeStopped(const QString &filePath);
     void logMessage(const QString &message);
+
+private slots:
+    void onKnotLinkData(const QString &data, const QString &questionID);
 
 private:
     QJsonArray scanChildren(const QDir &dir) const;
     NodeLoader *getOrCreateLoader(const QString &filePath);
     void removeLoader(const QString &filePath);
 
+    OpenSocketResponser *m_responder;
     QString m_recipesRoot;
     QMap<QString, NodeLoader *> m_loaders;
 };

@@ -5,6 +5,16 @@ mod knotlink_lib;
 
 // 重新导出常用类型（可选，方便命令中使用）
 use knotlink_lib::{OpenSocketQuerier, SignalSender, OpenSocketResponser};
+use std::net::TcpStream;
+use std::time::Duration;
+
+#[tauri::command]
+fn check_service_port(addr: String) -> bool {
+    TcpStream::connect_timeout(
+        &addr.parse().unwrap(),
+        Duration::from_secs(2)
+    ).is_ok()
+}
 
 #[tauri::command]
 async fn query_node(plugin_name: String) -> Result<String, String> {
@@ -90,17 +100,35 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-    nodes::get_node_detail,
-    nodes::set_node_autostart,
+    // 旧命令（兼容）
     nodes::get_nodes_list,
     nodes::refresh_nodes,
     nodes::start_node,
     nodes::stop_node,
+    nodes::get_node_detail,
+    nodes::get_node_manifest,
+    nodes::set_node_autostart,
     nodes::delete_node,
     nodes::update_node_settings,
     nodes::open_node_home,
-    nodes::get_node_manifest,
+    // 插入式节点
+    nodes::get_plugin_list,
+    nodes::refresh_plugins,
+    nodes::start_plugin,
+    nodes::stop_plugin,
+    nodes::get_plugin_detail,
+    nodes::get_plugin_funclist,
+    nodes::set_plugin_autostart,
+    // 独立式节点
+    nodes::get_standalone_list,
+    nodes::refresh_standalone,
+    nodes::start_standalone,
+    nodes::stop_standalone,
+    nodes::get_standalone_detail,
+    nodes::get_standalone_funclist,
+    // 动态调用
     nodes::call_open_socket,
+    // 配方
     recipes::get_recipe_tree,
     recipes::recipe_run,
     recipes::recipe_stop,
@@ -109,6 +137,7 @@ fn main() {
     recipes::recipe_save,
     recipes::recipe_delete,
     query_node,
+    check_service_port,
 ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

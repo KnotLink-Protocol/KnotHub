@@ -3,57 +3,21 @@ use std::sync::OnceLock;
 use serde_json::json;
 use serde::{Serialize, Deserialize};
 use crate::knotlink_lib::{OpenSocketQuerier, KvMapExt};
+use tokio::sync::Mutex;
 
-// ---------- 数据结构 ----------
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct NodeDetail {
-    #[serde(rename = "pluginName")]
-    pub plugin_name: String,
-    #[serde(rename = "appId")]
-    pub app_id: String,
-    pub author: String,
-    pub version: String,
-    pub description: String,
-    pub status: String,
-    #[serde(rename = "autoStart")]
-    pub auto_start: bool,
-}
+// ── socket ID 常量 ──────────────────────────────────────────
+const APP_ID: &str = "0x00000002";
+const SOCKET_PLUGIN:     &str = "0x00000011";
+const SOCKET_STANDALONE: &str = "0x00000012";
+const SOCKET_RECIPE:     &str = "0x00000013";
 
-// 放在 nodes.rs 中
-#[derive(Debug, serde::Deserialize)]
-struct RawNodeDetail {
-    plugin_name: String,
-    app_id: String,
-    author: String,
-    version: String,
-    description: String,
-    auto_start: String,   // 服务端返回字符串 "true" / "false"
-    status:String,
-    // 忽略 exe_path 字段（不定义即可）
-}
-impl From<RawNodeDetail> for NodeDetail {
-    fn from(raw: RawNodeDetail) -> Self {
-        NodeDetail {
-            plugin_name: raw.plugin_name,
-            app_id: raw.app_id,
-            author: raw.author,
-            version: raw.version,
-            description: raw.description,
-            // 根据版本或其他字段推导状态（示例）
-            status: raw.status,
-            // 将字符串 "true" 转为 true，其他为 false
-            auto_start: raw.auto_start == "true",
-        }
-    }
-}
-use tokio::sync::Mutex;   // 异步锁
-
+// ── 全局 Querier ─────────────────────────────────────────────
 static QUERIER: OnceLock<Mutex<OpenSocketQuerier>> = OnceLock::new();
 
 pub async fn init_querier() -> Result<(), String> {
     let querier = OpenSocketQuerier::new(
-        "0x00000002".into(),
-        "0x00000011".into(),
+        APP_ID.into(),
+        SOCKET_PLUGIN.into(),
         "127.0.0.1:6376"
     )
     .await
@@ -67,51 +31,83 @@ pub(crate) fn get_querier() -> &'static Mutex<OpenSocketQuerier> {
     QUERIER.get().expect("Querier not initialized")
 }
 
-// ---------- Tauri 命令 ----------
-#[tauri::command]
-pub async fn get_node_detail(node_id: String) -> Result<NodeDetail, String> {
+// ── 通用查询辅助 ──────────────────────────────────────────────
 
-    println!("get_node_detail");
-
-    let querier = get_querier().lock().await;
-
-    let mut req = HashMap::new();
-    req.insert("cmd".to_string(), "get_detail".to_string());
-    req.insert("plugin_name".to_string(), node_id);
-    let request = KvMapExt::serialize(&req);
-
-    let response = querier.query_l(request).await.map_err(|e| e.to_string())?;
-
-    let raw: RawNodeDetail = serde_json::from_str(&response)
-        .map_err(|e| format!("解析响应失败: {}, 原始: {}", e, response))?;
-
-    // let mock_detail = NodeDetail {
-    //     plugin_name: node_id.clone(),
-    //     app_id: "0x0000A001".to_string(),
-    //     author: "课堂助手团队".to_string(),
-    //     version: "v1.2.0".to_string(),
-    //     description: format!("节点 {} 的描述信息", node_id),
-    //     status: "运行中".to_string(),
-    //     auto_start: true,
-    // };
-    Ok(raw.into())
+async fn plugin_query(payload: &HashMap<String, String>) -> Result<String, String> {
+    let q = get_querier().lock().await;
+    q.query_with_ids(APP_ID, SOCKET_PLUGIN, KvMapExt::serialize(payload))
+        .await
+        .map_err(|e| e.to_string())
 }
 
-#[tauri::command]
-pub async fn set_node_autostart(node_id: String, auto_start: bool) -> Result<(), String> {
-    println!("模拟保存：节点 {} 的自启动设置为 {}", node_id, auto_start);
-    let querier = get_querier().lock().await;
-    let request = format!("cmd=update_config;plugin_name={};autostart={}", node_id,auto_start);
-    let response = querier.query_l(request).await.map_err(|e| e.to_string())?;
-    if response == "successful" {
-        Ok(())
-    } else {
-        Err(format!("设置失败: {}", response))
+async fn standalone_query(payload: &HashMap<String, String>) -> Result<String, String> {
+    let q = get_querier().lock().await;
+    q.query_with_ids(APP_ID, SOCKET_STANDALONE, KvMapExt::serialize(payload))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub(crate) async fn recipe_query(payload: &HashMap<String, String>) -> Result<String, String> {
+    let q = get_querier().lock().await;
+    q.query_with_ids(APP_ID, SOCKET_RECIPE, KvMapExt::serialize(payload))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+fn kv(cmd: &str, extra: &[(&str, &str)]) -> HashMap<String, String> {
+    let mut m = HashMap::new();
+    m.insert("cmd".into(), cmd.into());
+    for (k, v) in extra {
+        m.insert(k.to_string(), v.to_string());
+    }
+    m
+}
+
+// ── 数据结构 ──────────────────────────────────────────────────
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct NodeDetail {
+    #[serde(rename = "pluginName")]
+    pub plugin_name: String,
+    #[serde(rename = "appId")]
+    pub app_id: String,
+    #[serde(default)]
+    pub name: Option<String>,
+    pub author: String,
+    pub version: String,
+    pub description: String,
+    pub status: String,
+    #[serde(rename = "autoStart")]
+    pub auto_start: bool,
+}
+
+#[derive(Debug, Deserialize)]
+struct RawNodeDetail {
+    plugin_name: String,
+    app_id: String,
+    #[serde(default)]
+    name: Option<String>,
+    author: String,
+    version: String,
+    description: String,
+    auto_start: String,
+    status: String,
+}
+impl From<RawNodeDetail> for NodeDetail {
+    fn from(raw: RawNodeDetail) -> Self {
+        NodeDetail {
+            plugin_name: raw.plugin_name,
+            app_id: raw.app_id,
+            name: raw.name,
+            author: raw.author,
+            version: raw.version,
+            description: raw.description,
+            status: raw.status,
+            auto_start: raw.auto_start == "true",
+        }
     }
 }
 
-
-// ---------- 前端数据结构 ----------
 #[derive(Serialize)]
 pub struct NodeSummary {
     pub id: String,
@@ -122,8 +118,11 @@ pub struct NodeSummary {
     pub author: String,
     pub version: String,
     pub node_type: String,
+    pub name: Option<String>,
+    pub auto_start: Option<String>,
+    pub description: Option<String>,
 }
-// ---------- 解析服务端 JSON 的中间结构 ----------
+
 #[derive(Debug, Deserialize)]
 struct RawPlugin {
     app_id: String,
@@ -133,6 +132,12 @@ struct RawPlugin {
     version: String,
     #[serde(default)]
     node_type: String,
+    #[serde(default)]
+    description: String,
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(default)]
+    auto_start: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -140,183 +145,215 @@ struct RawPluginsResponse {
     plugins: Vec<RawPlugin>,
 }
 
-// ---------- 命令：获取节点列表 ----------
+#[derive(Debug, Deserialize)]
+struct RawStandaloneResponse {
+    standalone_nodes: Vec<RawPlugin>,
+}
+
+fn raw_to_summaries(raw: Vec<RawPlugin>) -> Vec<NodeSummary> {
+    raw.into_iter().map(|p| NodeSummary {
+        id: p.plugin_name,
+        app_id: p.app_id,
+        role: String::new(),
+        status: p.status,
+        hot_role: String::new(),
+        author: p.author,
+        version: p.version,
+        node_type: p.node_type,
+        name: p.name,
+        auto_start: p.auto_start,
+        description: Some(p.description),
+    }).collect()
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 插入式节点命令 (socketID: 0x00000011)
+// ═══════════════════════════════════════════════════════════════
+
 #[tauri::command]
-pub async fn get_nodes_list() -> Result<Vec<NodeSummary>, String> {
-
-    println!("get_nodes_list");
-
-    // 假设你已有全局 Querier（通过 OnceLock 管理）
-    let querier = get_querier().lock().await;   // 确保已初始化
-
-    // 发送请求（协议需与服务端一致）
-    let request = "cmd=get_plugin_list".to_string();
-    let response = querier.query_l(request)
-        .await
-        .map_err(|e| e.to_string())?;
-
-    // 解析 JSON
-    let raw_response: RawPluginsResponse = serde_json::from_str(&response)
+pub async fn get_plugin_list() -> Result<Vec<NodeSummary>, String> {
+    let resp = plugin_query(&kv("get_plugin_list", &[])).await?;
+    let raw: RawPluginsResponse = serde_json::from_str(&resp)
         .map_err(|e| format!("解析插件列表失败: {}", e))?;
-
-    // 转换为 NodeSummary
-    let summaries = raw_response.plugins.into_iter().map(|p| {
-        NodeSummary {
-            id: p.plugin_name,
-            app_id: p.app_id,
-            role: String::new(),
-            status: p.status,
-            hot_role: String::new(),
-            author: p.author,
-            version: p.version,
-            node_type: p.node_type,
-        }
-    }).collect();
-
-    Ok(summaries)
+    Ok(raw_to_summaries(raw.plugins))
 }
 
-// 启动节点
 #[tauri::command]
-pub async fn start_node(plugin_name: String) -> Result<(), String> {
-    let querier = get_querier().lock().await;
-    let request = format!("cmd=plugin_control;action=start;plugin_name={}", plugin_name);
-    let response = querier.query_l(request).await.map_err(|e| e.to_string())?;
-    if response == "ok" {
-        Ok(())
-    } else {
-        Err(format!("启动失败: {}", response))
-    }
+pub async fn refresh_plugins() -> Result<Vec<NodeSummary>, String> {
+    let resp = plugin_query(&kv("refresh", &[])).await?;
+    let raw: RawPluginsResponse = serde_json::from_str(&resp)
+        .map_err(|e| format!("解析失败: {}", e))?;
+    Ok(raw_to_summaries(raw.plugins))
 }
 
-// 停止节点
 #[tauri::command]
-pub async fn stop_node(plugin_name: String) -> Result<(), String> {
-    let querier = get_querier().lock().await;
-    let request = format!("cmd=plugin_control;action=stop;plugin_name={}", plugin_name);
-    let response = querier.query_l(request).await.map_err(|e| e.to_string())?;
-    if response == "ok" {
-        Ok(())
-    } else {
-        Err(format!("停止失败: {}", response))
-    }
+pub async fn start_plugin(node_id: String) -> Result<(), String> {
+    let resp = plugin_query(&kv("plugin_control", &[
+        ("action", "start"), ("plugin_name", &node_id)
+    ])).await?;
+    if resp == "ok" { Ok(()) } else { Err(resp) }
 }
 
-// 删除节点
 #[tauri::command]
-pub async fn delete_node(plugin_name: String) -> Result<(), String> {
-    let querier = get_querier().lock().await;
-    let request = format!("cmd=delete;plugin_name={}", plugin_name);
-    let response = querier.query_l(request).await.map_err(|e| e.to_string())?;
-    if response == "ok" {
-        Ok(())
-    } else {
-        Err(format!("删除失败: {}", response))
-    }
+pub async fn stop_plugin(node_id: String) -> Result<(), String> {
+    let resp = plugin_query(&kv("plugin_control", &[
+        ("action", "stop"), ("plugin_name", &node_id)
+    ])).await?;
+    if resp == "ok" { Ok(()) } else { Err(resp) }
 }
 
-// 更新节点设置（示例：传递 JSON 或键值对）
 #[tauri::command]
-pub async fn update_node_settings(plugin_name: String, settings: String) -> Result<(), String> {
-    let querier = get_querier().lock().await;
-    // settings 可以是 JSON 字符串，例如 {"role":"主控"}
-    let request = format!("cmd=update_settings;plugin_name={};settings={}", plugin_name, settings);
-    let response = querier.query_l(request).await.map_err(|e| e.to_string())?;
-    if response == "ok" {
-        Ok(())
-    } else {
-        Err(format!("更新设置失败: {}", response))
-    }
+pub async fn get_plugin_detail(node_id: String) -> Result<NodeDetail, String> {
+    let resp = plugin_query(&kv("get_detail", &[
+        ("plugin_name", &node_id)
+    ])).await?;
+    let raw: RawNodeDetail = serde_json::from_str(&resp)
+        .map_err(|e| format!("解析失败: {}, 原始: {}", e, resp))?;
+    Ok(raw.into())
 }
 
-// 获取节点主页（可能返回 URL 或直接打开）
 #[tauri::command]
-pub async fn open_node_home(plugin_name: String) -> Result<(), String> {
-    // 简单实现：打印日志，或调用系统浏览器
-    println!("打开节点 {} 的主页", plugin_name);
-    // 如果服务端有主页地址，可以查询后打开
-    Ok(())
+pub async fn get_plugin_funclist(node_id: String) -> Result<serde_json::Value, String> {
+    let resp = plugin_query(&kv("get_funclist", &[
+        ("plugin_name", &node_id)
+    ])).await?;
+    serde_json::from_str(&resp)
+        .map_err(|e| format!("解析失败: {}", e))
 }
-// 放在 nodes.rs 末尾
+
 #[tauri::command]
-pub async fn get_node_manifest(nodeId: String) -> Result<serde_json::Value, String> {
-    println!("🔍 get_node_manifest called with nodeId: {}", nodeId);
-    
-    // 获取全局 Querier（单例，复用连接）
-    let querier = get_querier().lock().await;  // 注意：需要加锁，因为 get_querier() 返回的是 &'static OpenSocketQuerier（未加锁）
-    // 但你的全局 QUERIER 目前是 OnceLock<OpenSocketQuerier>，不是 Mutex，所以可以直接用。
-    // 如果以后改成带锁的，记得 .lock().unwrap()
-
-    // 构造 KL 请求（根据你的实际协议调整）
-    let mut req = HashMap::new();
-    req.insert("cmd".to_string(), "get_funclist".to_string());
-    req.insert("plugin_name".to_string(), nodeId);
-    let request = KvMapExt::serialize(&req);  // 例如 "cmd=get_manifest;plugin_name=xxx"
-
-    // 发送查询，等待响应
-    let response = querier.query_l(request)
-        .await
-        .map_err(|e| format!("查询功能清单失败: {}", e))?;
-
-    // 解析响应（假设服务端返回 JSON 格式）
-    let manifest: serde_json::Value = serde_json::from_str(&response)
-        .map_err(|e| format!("解析功能清单 JSON 失败: {}, 原始: {}", e, response))?;
-
-    // 可选：验证返回的结构是否符合预期（appName, openSocket, signal 等）
-    // 如果不符合，可以返回错误或默认空清单
-    if !manifest.is_object() {
-        return Err("服务端返回的不是有效的 JSON 对象".to_string());
-    }
-
-    Ok(manifest)
+pub async fn set_plugin_autostart(node_id: String, auto_start: bool) -> Result<(), String> {
+    let autostart = if auto_start { "true" } else { "false" };
+    let resp = plugin_query(&kv("update_config", &[
+        ("plugin_name", &node_id), ("autostart", autostart)
+    ])).await?;
+    if resp == "successful" { Ok(()) } else { Err(resp) }
 }
+
+// ═══════════════════════════════════════════════════════════════
+// 独立式节点命令 (socketID: 0x00000012)
+// ═══════════════════════════════════════════════════════════════
+
+#[tauri::command]
+pub async fn get_standalone_list() -> Result<Vec<NodeSummary>, String> {
+    let resp = standalone_query(&kv("get_standalone_list", &[])).await?;
+    let raw: RawStandaloneResponse = serde_json::from_str(&resp)
+        .map_err(|e| format!("解析独立式列表失败: {}", e))?;
+    Ok(raw_to_summaries(raw.standalone_nodes))
+}
+
+#[tauri::command]
+pub async fn refresh_standalone() -> Result<Vec<NodeSummary>, String> {
+    let resp = standalone_query(&kv("refresh", &[])).await?;
+    let raw: RawStandaloneResponse = serde_json::from_str(&resp)
+        .map_err(|e| format!("解析失败: {}", e))?;
+    Ok(raw_to_summaries(raw.standalone_nodes))
+}
+
+#[tauri::command]
+pub async fn start_standalone(node_id: String) -> Result<(), String> {
+    let resp = standalone_query(&kv("standalone_control", &[
+        ("action", "start"), ("plugin_name", &node_id)
+    ])).await?;
+    if resp == "ok" { Ok(()) } else { Err(resp) }
+}
+
+#[tauri::command]
+pub async fn stop_standalone(node_id: String) -> Result<(), String> {
+    let resp = standalone_query(&kv("standalone_control", &[
+        ("action", "stop"), ("plugin_name", &node_id)
+    ])).await?;
+    if resp == "ok" { Ok(()) } else { Err(resp) }
+}
+
+#[tauri::command]
+pub async fn get_standalone_detail(node_id: String) -> Result<NodeDetail, String> {
+    let resp = standalone_query(&kv("get_detail", &[
+        ("plugin_name", &node_id)
+    ])).await?;
+    let raw: RawNodeDetail = serde_json::from_str(&resp)
+        .map_err(|e| format!("解析失败: {}, 原始: {}", e, resp))?;
+    Ok(raw.into())
+}
+
+#[tauri::command]
+pub async fn get_standalone_funclist(node_id: String) -> Result<serde_json::Value, String> {
+    let resp = standalone_query(&kv("get_funclist", &[
+        ("plugin_name", &node_id)
+    ])).await?;
+    serde_json::from_str(&resp)
+        .map_err(|e| format!("解析失败: {}", e))
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 动态调用 (call_open_socket — 保持兼容)
+// ═══════════════════════════════════════════════════════════════
 
 #[tauri::command]
 pub async fn call_open_socket(
-    appId: String,
-    openSocketId: String,
+    app_id: String,
+    open_socket_id: String,
     args: HashMap<String, String>,
 ) -> Result<String, String> {
-    let querier = get_querier().lock().await;
-    let mut req = HashMap::new();
-    // 注意：app_id 和 open_socket_id 不再需要放在请求体里（由前缀携带）
-    // 但仍可以保留作为请求参数，视协议而定
-    for (k, v) in args {
-        req.insert(k, v);
-    }
-    let request = KvMapExt::serialize(&req);
-    
-    // 使用 query_with_ids 传递临时 ID
-    let response = querier
-        .query_with_ids(&appId, &openSocketId, request)
+    let q = get_querier().lock().await;
+    q.query_with_ids(&app_id, &open_socket_id, KvMapExt::serialize(&args))
         .await
-        .map_err(|e| e.to_string())?;
-    Ok(response)
+        .map_err(|e| e.to_string())
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 保留旧命令兼容（转发到 plugin）
+// ═══════════════════════════════════════════════════════════════
+
+#[tauri::command]
+pub async fn get_nodes_list() -> Result<Vec<NodeSummary>, String> {
+    get_plugin_list().await
 }
 
 #[tauri::command]
 pub async fn refresh_nodes() -> Result<Vec<NodeSummary>, String> {
-    let querier = get_querier().lock().await;
-    let mut req: HashMap<String, String> = HashMap::new();
-    req.insert("cmd".into(), "refresh".into());
-    let request = KvMapExt::serialize(&req);
-    let response = querier.query_l(request).await.map_err(|e| e.to_string())?;
+    refresh_plugins().await
+}
 
-    let raw_response: RawPluginsResponse = serde_json::from_str(&response)
-        .map_err(|e| format!("解析插件列表失败: {}", e))?;
+#[tauri::command]
+pub async fn start_node(node_id: String) -> Result<(), String> {
+    start_plugin(node_id).await
+}
 
-    let summaries = raw_response.plugins.into_iter().map(|p| {
-        NodeSummary {
-            id: p.plugin_name,
-            app_id: p.app_id,
-            role: String::new(),
-            status: p.status,
-            hot_role: String::new(),
-            author: p.author,
-            version: p.version,
-            node_type: p.node_type,
-        }
-    }).collect();
+#[tauri::command]
+pub async fn stop_node(node_id: String) -> Result<(), String> {
+    stop_plugin(node_id).await
+}
 
-    Ok(summaries)
+#[tauri::command]
+pub async fn get_node_detail(node_id: String) -> Result<NodeDetail, String> {
+    get_plugin_detail(node_id).await
+}
+
+#[tauri::command]
+pub async fn get_node_manifest(node_id: String) -> Result<serde_json::Value, String> {
+    get_plugin_funclist(node_id).await
+}
+
+#[tauri::command]
+pub async fn set_node_autostart(node_id: String, auto_start: bool) -> Result<(), String> {
+    set_plugin_autostart(node_id, auto_start).await
+}
+
+#[tauri::command]
+pub async fn delete_node(plugin_name: String) -> Result<(), String> {
+    // 尚未实现删除 API
+    Err("delete not implemented".into())
+}
+
+#[tauri::command]
+pub async fn update_node_settings(plugin_name: String, settings: String) -> Result<(), String> {
+    println!("update_node_settings {} {}", plugin_name, settings);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn open_node_home(plugin_name: String) -> Result<(), String> {
+    println!("open_node_home {}", plugin_name);
+    Ok(())
 }

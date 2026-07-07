@@ -36,6 +36,7 @@ SOURCES += \
         knothubcore.cpp \
         daemon.cpp \
     NodeManager/nodemanager.cpp \
+    NodeManager/standalonemanager.cpp \
     NodeManager/nodeloader.cpp \
     NodeManager/nodeinstaller.cpp \
     NodeManager/plugininfo.cpp \
@@ -45,6 +46,7 @@ HEADERS += \
         knothubcore.h \
         daemon.h \
     NodeManager/nodemanager.h \
+    NodeManager/standalonemanager.h \
     NodeManager/nodeloader.h \
     NodeManager/nodeinstaller.h \
     NodeManager/plugininfo.h \
