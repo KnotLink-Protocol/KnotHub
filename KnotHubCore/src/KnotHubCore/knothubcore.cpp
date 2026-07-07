@@ -4,6 +4,8 @@
 #include <QCloseEvent>
 #include <QAction>
 #include <QStyle>
+#include <QDateTime>
+#include <QScrollBar>
 
 KnotHubCore::KnotHubCore(QWidget *parent)
     : QWidget(parent)
@@ -14,17 +16,25 @@ KnotHubCore::KnotHubCore(QWidget *parent)
 {
     ui->setupUi(this);
 
-    // 启动守护进程
-    connect(m_daemon, &Daemon::logMessage, this, [](const QString &msg) {
-        qDebug() << msg;
+    // ── 日志输出 ──────────────────────────────────────────
+    connect(m_daemon, &Daemon::logMessage, this, &KnotHubCore::appendLog);
+
+    // ── 清空按钮 ──────────────────────────────────────────
+    connect(ui->clearBtn, &QPushButton::clicked, this, [this]() {
+        ui->logView->clear();
     });
 
+    // ── 启动守护进程 ──────────────────────────────────────
     m_daemon->start();
+    appendLog("KnotHub 守护进程已启动");
 
-    // 创建托盘
+    // ── 创建托盘 ──────────────────────────────────────────
     createTrayIcon();
 
-    // 默认不显示主窗口
+    // ── 更新统计 ──────────────────────────────────────────
+    updateStatus();
+
+    // ── 默认不显示主窗口 ──────────────────────────────────
     hide();
 }
 
@@ -32,6 +42,27 @@ KnotHubCore::~KnotHubCore()
 {
     m_daemon->stop();
     delete ui;
+}
+
+void KnotHubCore::appendLog(const QString &msg)
+{
+    QString ts = QDateTime::currentDateTime().toString("hh:mm:ss");
+    ui->logView->appendPlainText(QString("[%1] %2").arg(ts, msg));
+
+    // 自动滚到底部
+    QScrollBar *bar = ui->logView->verticalScrollBar();
+    bar->setValue(bar->maximum());
+}
+
+void KnotHubCore::updateStatus()
+{
+    int plugins    = m_daemon->pluginManager()->pluginNames().size();
+    int standalones = m_daemon->standaloneManager()->nodes().size();
+
+    ui->statusLabel->setText(
+        QString("插件: %1  |  独立式: %2").arg(plugins).arg(standalones));
+
+    updateTrayTooltip();
 }
 
 void KnotHubCore::createTrayIcon()
@@ -69,6 +100,7 @@ void KnotHubCore::showWindow()
     if (isVisible()) {
         hide();
     } else {
+        updateStatus();
         show();
         raise();
         activateWindow();
@@ -77,6 +109,9 @@ void KnotHubCore::showWindow()
 
 void KnotHubCore::updateTrayTooltip()
 {
-    int count = m_daemon->pluginManager()->pluginNames().size();
-    m_trayIcon->setToolTip(QString("KnotHub 守护进程\n插件数: %1").arg(count));
+    int plugins     = m_daemon->pluginManager()->pluginNames().size();
+    int standalones  = m_daemon->standaloneManager()->nodes().size();
+    m_trayIcon->setToolTip(
+        QString("KnotHub 守护进程\n插件: %1  独立式: %2")
+            .arg(plugins).arg(standalones));
 }

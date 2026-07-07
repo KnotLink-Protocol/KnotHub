@@ -1,20 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
  <class>KnotHubCore</class>
- <widget class="QWidget" name="KnotHubCore" >
-  <property name="geometry" >
+ <widget class="QWidget" name="KnotHubCore">
+  <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>400</width>
-    <height>300</height>
+    <width>700</width>
+    <height>450</height>
    </rect>
   </property>
-  <property name="windowTitle" >
-   <string>KnotHubCore</string>
+  <property name="windowTitle">
+   <string>KnotHub 守护进程</string>
   </property>
+  <layout class="QVBoxLayout" name="mainLayout">
+   <item>
+    <widget class="QLabel" name="titleLabel">
+     <property name="text">
+      <string>KnotHub 运行日志</string>
+     </property>
+     <property name="styleSheet">
+      <string>font-size: 14px; font-weight: bold; padding: 4px 0;</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QPlainTextEdit" name="logView">
+     <property name="readOnly">
+      <bool>true</bool>
+     </property>
+     <property name="font">
+      <font>
+       <family>Consolas</family>
+       <pointsize>10</pointsize>
+      </font>
+     </property>
+     <property name="styleSheet">
+      <string>background: #1e1e1e; color: #d4d4d4;</string>
+     </property>
+     <property name="undoRedoEnabled">
+      <bool>false</bool>
+     </property>
+     <property name="maximumBlockCount">
+      <number>5000</number>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="bottomBar">
+     <item>
+      <widget class="QLabel" name="statusLabel">
+       <property name="text">
+        <string>就绪</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="bottomSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QPushButton" name="clearBtn">
+       <property name="text">
+        <string>清空日志</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+  </layout>
  </widget>
- <layoutDefault spacing="6" margin="11" />
- <pixmapfunction></pixmapfunction>
  <resources/>
  <connections/>
 </ui>

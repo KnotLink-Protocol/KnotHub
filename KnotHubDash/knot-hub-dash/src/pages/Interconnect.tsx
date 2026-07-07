@@ -14,6 +14,7 @@ export default function Interconnect() {
   const [tree, setTree] = useState<TreeNode | null>(null);
   const [loading, setLoading] = useState(true);
   const [statusMap, setStatusMap] = useState<Record<string, string>>({});
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   const loadTree = useCallback(async () => {
     try {
@@ -27,9 +28,7 @@ export default function Interconnect() {
     }
   }, []);
 
-  useEffect(() => {
-    loadTree();
-  }, [loadTree]);
+  useEffect(() => { loadTree(); }, [loadTree]);
 
   const handleRun = async (filePath: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -66,13 +65,13 @@ export default function Interconnect() {
     if (node.type === 'recipe') {
       const status = statusMap[node.id] || node.status || 'stopped';
       window.dispatchEvent(new CustomEvent('update-preview', {
-        detail: {
-          type: 'recipe',
-          id: node.id,
-          details: { id: node.id, name: node.name, status },
-        },
+        detail: { type: 'recipe', id: node.id, details: { id: node.id, name: node.name, status } },
       }));
     }
+  };
+
+  const toggleFolder = (id: string) => {
+    setCollapsed(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
   const handleNew = async (parentPath: string) => {
@@ -87,49 +86,61 @@ export default function Interconnect() {
     }
   };
 
-  const getStatus = (node: TreeNode) => {
-    return statusMap[node.id] || node.status || 'stopped';
-  };
+  const getStatus = (node: TreeNode) => statusMap[node.id] || node.status || 'stopped';
 
-  const renderTree = (node: TreeNode, depth: number = 0) => {
-    const status = getStatus(node);
+  const renderTree = (node: TreeNode) => {
+    const isFolder = node.type === 'folder';
+    const folded = collapsed[node.id] === true;
 
-    if (node.type === 'folder') {
+    if (isFolder) {
       return (
-        <div key={node.id} style={{ marginLeft: depth * 20 }}>
-          <div className={styles.treeNode}>
-            <span>📁 {node.name}</span>
-            <button className="btn btn-sm" onClick={() => handleNew(node.id)}>+新建</button>
+        <div key={node.id}>
+          <div className={styles.folderRow} onClick={() => toggleFolder(node.id)}>
+            <span style={{ marginRight: 6 }}>{folded ? '▶' : '▼'}</span>
+            <span>{folded ? '📁' : '📂'} {node.name}</span>
+            <span style={{ fontSize: 11, color: '#999', marginLeft: 8 }}>
+              {(node.children || []).length} 项
+            </span>
+            <button
+              className="btn btn-sm"
+              style={{ marginLeft: 'auto', fontSize: 11, padding: '1px 6px' }}
+              onClick={(e) => { e.stopPropagation(); handleNew(node.id); }}
+            >
+              +
+            </button>
           </div>
-          {(node.children || []).map(child => renderTree(child, depth + 1))}
+          {!folded && (
+            <div className={styles.treeLevel}>
+              {(node.children || []).map(child => renderTree(child))}
+            </div>
+          )}
         </div>
       );
     }
 
+    // recipe — compact
+    const status = getStatus(node);
     return (
-      <div key={node.id} style={{ marginLeft: depth * 20 }}>
-        <div
-          className={styles.treeNode}
-          onClick={() => handleClick(node)}
-          style={{ cursor: 'pointer' }}
+      <div key={node.id} className={styles.recipeRow} onClick={() => handleClick(node)}>
+        <span style={{ marginRight: 6, fontSize: 10, color: '#999' }}>├</span>
+        <span style={{ marginRight: 4 }}>🐍</span>
+        <span>{node.name}</span>
+        <span
+          className={status === 'running' ? 'status-badge' : 'status-badge warning'}
+          style={{ fontSize: 10, padding: '0px 5px', lineHeight: '16px', marginLeft: 8 }}
         >
-          <span className={styles.recipeIcon}>🐍</span>
-          <span className={styles.nodeName}>{node.name}</span>
-          <span className={status === 'running' ? 'status-badge' : 'status-badge warning'}>
-            {status}
-          </span>
+          {status === 'running' ? '运行' : '停'}
+        </span>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 3 }}>
           {status === 'running' ? (
-            <button className="btn btn-sm btn-danger" onClick={(e) => handleStop(node.id, e)}>
-              ⏹ 停止
-            </button>
+            <button className="btn btn-sm btn-danger" style={{ fontSize: 10, padding: '0px 5px' }}
+              onClick={(e) => handleStop(node.id, e)}>⏹</button>
           ) : (
-            <button className="btn btn-sm" onClick={(e) => handleRun(node.id, e)}>
-              ▶ 运行
-            </button>
+            <button className="btn btn-sm" style={{ fontSize: 10, padding: '0px 5px' }}
+              onClick={(e) => handleRun(node.id, e)}>▶</button>
           )}
-          <button className="btn btn-sm btn-danger" onClick={(e) => handleDelete(node.id, e)}>
-            🗑
-          </button>
+          <button className="btn btn-sm btn-danger" style={{ fontSize: 10, padding: '0px 5px' }}
+            onClick={(e) => handleDelete(node.id, e)}>🗑</button>
         </div>
       </div>
     );

@@ -1,10 +1,7 @@
 #include "standalonemanager.h"
-#include "nodeloader.h"
 #include <KnotLinkLib>
 
 #include <QDebug>
-#include <QThread>
-#include <QJsonParseError>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -24,16 +21,10 @@ StandaloneManager::StandaloneManager(QObject *parent)
 
 StandaloneManager::~StandaloneManager()
 {
-    for (auto it = m_loaders.begin(); it != m_loaders.end(); ++it) {
-        if (it.value()->statuscheck())
-            it.value()->stop();
-        delete it.value();
-    }
-    m_loaders.clear();
 }
 
 // ═══════════════════════════════════════════════════════════════
-// 扫描 — 对标 PluginManager::refreshPluginList()
+// 扫描 — 读取注册表 HKCU\Software\KnotLink\StandaloneNodes
 // ═══════════════════════════════════════════════════════════════
 
 void StandaloneManager::scan()
@@ -46,6 +37,7 @@ void StandaloneManager::scan()
                       L"Software\\KnotLink\\StandaloneNodes",
                       0, KEY_READ, &hKey) != ERROR_SUCCESS) {
         qDebug() << "[Standalone] No nodes registered (registry key not found)";
+        emit nodeListChanged();
         return;
     }
 
@@ -94,11 +86,9 @@ void StandaloneManager::scan()
             continue;
         }
 
-        info.isOnline = checkAlive(appId);
         m_nodes.append(info);
 
-        qDebug() << "[Standalone] Node added:" << info.appId << info.appName
-                 << "online:" << info.isOnline << "autostart:" << info.autoStart;
+        qDebug() << "[Standalone] Node added:" << info.appId << info.appName;
         index++;
     }
 
@@ -178,33 +168,6 @@ void StandaloneManager::fallbackFromFuncList(const QDir &dir, NodeInfo &info)
 }
 
 // ═══════════════════════════════════════════════════════════════
-// 探活
-// ═══════════════════════════════════════════════════════════════
-
-bool StandaloneManager::checkAlive(const QString &appId)
-{
-    if (m_loaders.contains(appId))
-        return m_loaders[appId]->statuscheck();
-
-    for (const auto &info : m_nodes) {
-        if (info.appId != appId) continue;
-        if (info.exePath.isEmpty()) return false;
-
-        QString exeName = QFileInfo(info.absoluteExePath()).fileName();
-        if (exeName.isEmpty()) return false;
-
-        QProcess proc;
-        proc.start("tasklist", QStringList()
-                   << "/FI" << QString("IMAGENAME eq %1").arg(exeName)
-                   << "/NH" << "/FO" << "CSV");
-        proc.waitForFinished(3000);
-        QString output = QString::fromLocal8Bit(proc.readAllStandardOutput());
-        return output.contains(exeName, Qt::CaseInsensitive);
-    }
-    return false;
-}
-
-// ═══════════════════════════════════════════════════════════════
 // 查询
 // ═══════════════════════════════════════════════════════════════
 
@@ -230,7 +193,7 @@ QByteArray StandaloneManager::exportListToJson() const
         obj["author"]      = n.author;
         obj["version"]     = n.version;
         obj["description"] = n.description;
-        obj["status"]      = n.isOnline ? "运行中" : "停止";
+        obj["status"]      = "已注册";            // 独立式不管理运行状态
         obj["node_type"]   = "standalone";
         obj["name"]        = n.appName;
         obj["auto_start"]  = n.autoStart ? "true" : "false";
@@ -256,128 +219,7 @@ QByteArray StandaloneManager::getFuncList(const QString &appId) const
 }
 
 // ═══════════════════════════════════════════════════════════════
-// Loader 管理
-// ═══════════════════════════════════════════════════════════════
-
-NodeLoader* StandaloneManager::getOrCreateLoader(const QString &appId)
-{
-    if (m_loaders.contains(appId))
-        return m_loaders[appId];
-
-    NodeLoader *loader = new NodeLoader(this);
-    m_loaders[appId] = loader;
-
-    connect(loader, &NodeLoader::processFinished,
-            this, [this, appId](int, QProcess::ExitStatus) {
-        for (int i = 0; i < m_nodes.size(); i++) {
-            if (m_nodes[i].appId == appId) {
-                m_nodes[i].isOnline = false;
-                break;
-            }
-        }
-        emit nodeStopped(appId);
-    });
-    connect(loader, &NodeLoader::processError,
-            this, [this, appId](QProcess::ProcessError, const QString &err) {
-        emit nodeError(appId, err);
-    });
-
-    return loader;
-}
-
-void StandaloneManager::removeLoader(const QString &appId)
-{
-    if (m_loaders.contains(appId)) {
-        delete m_loaders.take(appId);
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════
-// 启停
-// ═══════════════════════════════════════════════════════════════
-
-bool StandaloneManager::startNode(const QString &appId)
-{
-    for (auto &info : m_nodes) {
-        if (info.appId != appId) continue;
-
-        if (info.exePath.isEmpty()) {
-            emit nodeError(appId, "No executable path");
-            return false;
-        }
-
-        QString exe = info.absoluteExePath();
-        if (!QFile::exists(exe)) {
-            emit nodeError(appId, QString("Executable not found: %1").arg(exe));
-            return false;
-        }
-
-        NodeLoader *loader = getOrCreateLoader(appId);
-        if (loader->statuscheck()) {
-            qDebug() << "[Standalone] Already running:" << appId;
-            return false;
-        }
-
-        loader->start(exe, QStringList());
-        if (loader->statuscheck()) {
-            info.isOnline = true;
-            emit nodeStarted(appId);
-            return true;
-        }
-        return false;
-    }
-    return false;
-}
-
-bool StandaloneManager::stopNode(const QString &appId)
-{
-    if (!m_loaders.contains(appId)) {
-        // 尝试按进程名杀
-        for (const auto &info : m_nodes) {
-            if (info.appId != appId) continue;
-            if (info.exePath.isEmpty()) return false;
-
-            QString exeName = QFileInfo(info.absoluteExePath()).fileName();
-            QProcess::execute("taskkill", QStringList()
-                              << "/F" << "/T" << "/IM" << exeName);
-            for (auto &n : m_nodes) {
-                if (n.appId == appId) n.isOnline = false;
-            }
-            emit nodeStopped(appId);
-            return true;
-        }
-        return false;
-    }
-
-    NodeLoader *loader = m_loaders[appId];
-    if (!loader->statuscheck()) return true;
-
-    loader->stop();
-    if (!loader->statuscheck()) {
-        for (auto &n : m_nodes) {
-            if (n.appId == appId) n.isOnline = false;
-        }
-        emit nodeStopped(appId);
-        return true;
-    }
-    return false;
-}
-
-bool StandaloneManager::isNodeRunning(const QString &appId) const
-{
-    return m_loaders.contains(appId) && m_loaders[appId]->statuscheck();
-}
-
-void StandaloneManager::startAutoStartNodes()
-{
-    for (const auto &n : m_nodes) {
-        if (n.autoStart && !n.exePath.isEmpty())
-            startNode(n.appId);
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════
-// KnotLink 消息处理 — 独立 socketID: 0x00000012
+// KnotLink 消息处理 — socketID: 0x00000012
 // ═══════════════════════════════════════════════════════════════
 
 void StandaloneManager::onKnotLinkData(const QString &data, const QString &questionID)
@@ -391,6 +233,7 @@ void StandaloneManager::onKnotLinkData(const QString &data, const QString &quest
     QString reply;
 
     if (cmd == "get_standalone_list") {
+        scan();  // 动态扫描注册表
         reply = QString::fromUtf8(exportListToJson());
 
     } else if (cmd == "get_detail") {
@@ -406,35 +249,12 @@ void StandaloneManager::onKnotLinkData(const QString &data, const QString &quest
             obj["author"]      = info.author;
             obj["version"]     = info.version;
             obj["description"] = info.description;
-            obj["status"]      = info.isOnline ? "运行中" : "停止";
+            obj["status"]      = "已注册";
             obj["auto_start"]  = info.autoStart ? "true" : "false";
             obj["exe_path"]    = info.exePath;
             obj["node_type"]   = "standalone";
             reply = QString::fromUtf8(QJsonDocument(obj).toJson());
         }
-
-    } else if (cmd == "standalone_control") {
-        QString action      = kvMap["action"];
-        QString appId       = kvMap["plugin_name"];
-        bool    success     = false;
-        QString errorMsg;
-
-        if (action == "start") {
-            success = startNode(appId);
-            if (!success) errorMsg = "Failed to start: " + appId;
-        } else if (action == "stop") {
-            success = stopNode(appId);
-            if (!success) errorMsg = "Failed to stop: " + appId;
-        } else if (action == "restart") {
-            stopNode(appId);
-            QThread::msleep(100);
-            success = startNode(appId);
-            if (!success) errorMsg = "Failed to restart: " + appId;
-        } else {
-            errorMsg = "Unsupported action: " + action;
-        }
-
-        reply = success ? "ok" : ("error: " + errorMsg);
 
     } else if (cmd == "get_funclist") {
         QString appId = kvMap["plugin_name"];
@@ -442,10 +262,6 @@ void StandaloneManager::onKnotLinkData(const QString &data, const QString &quest
         reply = content.isEmpty()
                 ? "Error: FuncList.json not found for " + appId
                 : QString::fromUtf8(content);
-
-    } else if (cmd == "update_config") {
-        // 预留：未来可修改独立节点 autostart
-        reply = "ok";
 
     } else if (cmd == "refresh") {
         scan();

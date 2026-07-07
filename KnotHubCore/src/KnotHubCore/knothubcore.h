@@ -4,6 +4,7 @@
 #include <QWidget>
 #include <QSystemTrayIcon>
 #include <QMenu>
+#include <QPlainTextEdit>
 #include "daemon.h"
 
 namespace Ui {
@@ -21,10 +22,12 @@ public:
 private slots:
     void onTrayActivated(QSystemTrayIcon::ActivationReason reason);
     void showWindow();
+    void appendLog(const QString &msg);
 
 private:
     void createTrayIcon();
     void updateTrayTooltip();
+    void updateStatus();
 
     Ui::KnotHubCore *ui;
     Daemon *m_daemon;

@@ -3,3 +3,5 @@ build-*/
 KnotHubCore/src/build-KnotHubCore-Desktop_Qt_5_9_0_MinGW_32bit-Debug/
 KnotHubDash/knot-hub-dash/node_modules
 dist
+scripts/staging/
+scripts/bin/

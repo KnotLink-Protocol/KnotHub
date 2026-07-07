@@ -29,7 +29,7 @@ bool Daemon::start()
 
     connect(m_pluginManager, &PluginManager::pluginListChanged,
             this, [this](const QStringList &list) {
-        emit logMessage(QString("Plugins: %1").arg(list.size()));
+        emit logMessage(QString("Plugins refreshed: %1").arg(list.size()));
     });
     connect(m_pluginManager, &PluginManager::pluginStarted,
             this, [this](const QString &name) {
@@ -47,23 +47,11 @@ bool Daemon::start()
     // ── 2. 独立式节点管理器 — socketID: 0x00000012 ──────
     m_standaloneManager = new StandaloneManager(this);
     m_standaloneManager->scan();
-    m_standaloneManager->startAutoStartNodes();
 
     connect(m_standaloneManager, &StandaloneManager::nodeListChanged,
             this, [this]() {
-        emit logMessage("Standalone nodes refreshed");
-    });
-    connect(m_standaloneManager, &StandaloneManager::nodeStarted,
-            this, [this](const QString &appId) {
-        emit logMessage(QString("Standalone node started: %1").arg(appId));
-    });
-    connect(m_standaloneManager, &StandaloneManager::nodeStopped,
-            this, [this](const QString &appId) {
-        emit logMessage(QString("Standalone node stopped: %1").arg(appId));
-    });
-    connect(m_standaloneManager, &StandaloneManager::nodeError,
-            this, [this](const QString &appId, const QString &err) {
-        emit logMessage(QString("Standalone error [%1]: %2").arg(appId, err));
+        int count = m_standaloneManager->nodes().size();
+        emit logMessage(QString("Standalone nodes refreshed: %1").arg(count));
     });
 
     // ── 3. 配方管理器 — socketID: 0x00000013 ────────────

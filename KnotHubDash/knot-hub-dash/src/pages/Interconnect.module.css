@@ -68,5 +68,46 @@
 }
 
 .children {
-  /* 子节点缩进通过父级 marginLeft 控制，此处不需要额外边距 */
+}
+
+/* ── 树形层级线 ────────────────────────────── */
+.treeLevel {
+  margin-left: 20px;
+  padding-left: 12px;
+  border-left: 1px solid var(--border, #e0e0e0);
+}
+
+.treeLevel:hover {
+  border-left-color: #667eea;
+}
+
+.folderRow {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background 0.15s;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.folderRow:hover {
+  background: var(--bg-hover);
+}
+
+.recipeRow {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  padding: 2px 8px;
+  margin: 1px 0;
+  border-radius: 3px;
+  transition: background 0.15s;
+  font-size: 12px;
+}
+
+.recipeRow:hover {
+  background: var(--bg-hover);
 }

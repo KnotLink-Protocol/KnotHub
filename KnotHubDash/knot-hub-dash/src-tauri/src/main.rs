@@ -122,8 +122,6 @@ fn main() {
     // 独立式节点
     nodes::get_standalone_list,
     nodes::refresh_standalone,
-    nodes::start_standalone,
-    nodes::stop_standalone,
     nodes::get_standalone_detail,
     nodes::get_standalone_funclist,
     // 动态调用

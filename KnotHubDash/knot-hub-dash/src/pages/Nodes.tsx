@@ -57,19 +57,17 @@ export default function Nodes() {
 
   const handleAction = async (action: string, nodeId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    const isPlugin = tab === 'plugin';
-    const startCmd = isPlugin ? 'start_plugin' : 'start_standalone';
-    const stopCmd  = isPlugin ? 'stop_plugin'  : 'stop_standalone';
-    const setter   = isPlugin ? setPlugins : setStandalones;
+    // 独立式节点无操作按钮，仅插件走此路径
+    const setter = setPlugins;
 
     try {
       switch (action) {
         case 'start':
-          await invoke(startCmd, { nodeId });
+          await invoke('start_plugin', { nodeId });
           setter(prev => prev.map(n => n.id === nodeId ? { ...n, status: '运行中' } : n));
           break;
         case 'stop':
-          await invoke(stopCmd, { nodeId });
+          await invoke('stop_plugin', { nodeId });
           setter(prev => prev.map(n => n.id === nodeId ? { ...n, status: '停止' } : n));
           break;
         case 'delete':
@@ -129,8 +127,10 @@ export default function Nodes() {
     }
   };
 
-  const getStatusClass = (status: string) =>
-    status === '运行中' ? 'status-badge' : 'status-badge warning';
+  const getStatusClass = (status: string) => {
+    if (status === '已注册') return 'status-badge';
+    return status === '运行中' ? 'status-badge' : 'status-badge warning';
+  };
 
   return (
     <>
@@ -206,55 +206,63 @@ export default function Nodes() {
                     </span>
                   </div>
                   <div className={styles.actions}>
-                    <button
-                      className={`btn btn-sm ${styles.iconBtn} ${styles.noBorder}`}
-                      aria-label={node.status === '运行中' ? '停止' : '启动'}
-                      onClick={(e) => handleAction(
-                        node.status === '运行中' ? 'stop' : 'start', node.id, e)}
-                    >
-                      <img
-                        src={node.status === '运行中' ? stopIcon : startIcon}
-                        alt={node.status === '运行中' ? '停止' : '启动'}
-                        className={styles.actionIcon}
-                      />
-                    </button>
-                    <button
-                      className={`btn btn-sm ${styles.iconBtn} ${styles.noBorder}`}
-                      aria-label="设置"
-                      onClick={(e) => handleAction('settings', node.id, e)}
-                    >
-                      <img src={settingIcon} alt="设置" className={styles.actionIcon} />
-                    </button>
-                    <button
-                      className={`btn btn-sm ${styles.iconBtn} ${styles.noBorder}`}
-                      aria-label="主页"
-                      onClick={(e) => handleAction('home', node.id, e)}
-                    >
-                      <img src={homeIcon} alt="主页" className={styles.actionIcon} />
-                    </button>
+                    {tab !== 'standalone' && (
+                      <button
+                        className={`btn btn-sm ${styles.iconBtn} ${styles.noBorder}`}
+                        aria-label={node.status === '运行中' ? '停止' : '启动'}
+                        onClick={(e) => handleAction(
+                          node.status === '运行中' ? 'stop' : 'start', node.id, e)}
+                      >
+                        <img
+                          src={node.status === '运行中' ? stopIcon : startIcon}
+                          alt={node.status === '运行中' ? '停止' : '启动'}
+                          className={styles.actionIcon}
+                        />
+                      </button>
+                    )}
+                    {tab !== 'standalone' && (
+                      <button
+                        className={`btn btn-sm ${styles.iconBtn} ${styles.noBorder}`}
+                        aria-label="设置"
+                        onClick={(e) => handleAction('settings', node.id, e)}
+                      >
+                        <img src={settingIcon} alt="设置" className={styles.actionIcon} />
+                      </button>
+                    )}
+                    {tab !== 'standalone' && (
+                      <button
+                        className={`btn btn-sm ${styles.iconBtn} ${styles.noBorder}`}
+                        aria-label="主页"
+                        onClick={(e) => handleAction('home', node.id, e)}
+                      >
+                        <img src={homeIcon} alt="主页" className={styles.actionIcon} />
+                      </button>
+                    )}
                   </div>
                 </div>
 
                 <div className={styles.bottom}>
                   <span className={styles.author}>{node.author}</span>
                   <span className={styles.version}>{node.version}</span>
-                  <button
-                    className="btn btn-sm"
-                    style={{
-                      fontSize: 11,
-                      marginLeft: 8,
-                      padding: '2px 8px',
-                      background: node.auto_start === 'true' ? '#667eea' : '#ddd',
-                      color: node.auto_start === 'true' ? '#fff' : '#666',
-                      border: 'none',
-                      borderRadius: 10,
-                      cursor: 'pointer',
-                    }}
-                    onClick={(e) => handleToggleAutostart(node.id, node.auto_start || 'false', e)}
-                    title={node.auto_start === 'true' ? '已开启自启，点击关闭' : '已关闭自启，点击开启'}
-                  >
-                    {node.auto_start === 'true' ? '自启 ✓' : '自启 ✗'}
-                  </button>
+                  {tab !== 'standalone' && (
+                    <button
+                      className="btn btn-sm"
+                      style={{
+                        fontSize: 11,
+                        marginLeft: 8,
+                        padding: '2px 8px',
+                        background: node.auto_start === 'true' ? '#667eea' : '#ddd',
+                        color: node.auto_start === 'true' ? '#fff' : '#666',
+                        border: 'none',
+                        borderRadius: 10,
+                        cursor: 'pointer',
+                      }}
+                      onClick={(e) => handleToggleAutostart(node.id, node.auto_start || 'false', e)}
+                      title={node.auto_start === 'true' ? '已开启自启，点击关闭' : '已关闭自启，点击开启'}
+                    >
+                      {node.auto_start === 'true' ? '自启 ✓' : '自启 ✗'}
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

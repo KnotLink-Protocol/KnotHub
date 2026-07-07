@@ -251,22 +251,6 @@ pub async fn refresh_standalone() -> Result<Vec<NodeSummary>, String> {
 }
 
 #[tauri::command]
-pub async fn start_standalone(node_id: String) -> Result<(), String> {
-    let resp = standalone_query(&kv("standalone_control", &[
-        ("action", "start"), ("plugin_name", &node_id)
-    ])).await?;
-    if resp == "ok" { Ok(()) } else { Err(resp) }
-}
-
-#[tauri::command]
-pub async fn stop_standalone(node_id: String) -> Result<(), String> {
-    let resp = standalone_query(&kv("standalone_control", &[
-        ("action", "stop"), ("plugin_name", &node_id)
-    ])).await?;
-    if resp == "ok" { Ok(()) } else { Err(resp) }
-}
-
-#[tauri::command]
 pub async fn get_standalone_detail(node_id: String) -> Result<NodeDetail, String> {
     let resp = standalone_query(&kv("get_detail", &[
         ("plugin_name", &node_id)
