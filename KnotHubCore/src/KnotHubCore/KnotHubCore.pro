@@ -34,6 +34,7 @@ include($$PWD/KnotLinkLib/KnotLinkLib.pri)
 SOURCES += \
         main.cpp \
         knothubcore.cpp \
+        daemon.cpp \
     NodeManager/nodemanager.cpp \
     NodeManager/nodeloader.cpp \
     NodeManager/nodeinstaller.cpp \
@@ -41,6 +42,7 @@ SOURCES += \
 
 HEADERS += \
         knothubcore.h \
+        daemon.h \
     NodeManager/nodemanager.h \
     NodeManager/nodeloader.h \
     NodeManager/nodeinstaller.h \

@@ -1,37 +1,82 @@
 #include "knothubcore.h"
 #include "ui_knothubcore.h"
+#include <QApplication>
+#include <QCloseEvent>
+#include <QAction>
+#include <QStyle>
 
-#include <QtDebug>
-
-KnotHubCore::KnotHubCore(QWidget *parent) :
-    QWidget(parent),
-    ui(new Ui::KnotHubCore)
+KnotHubCore::KnotHubCore(QWidget *parent)
+    : QWidget(parent)
+    , ui(new Ui::KnotHubCore)
+    , m_daemon(new Daemon(this))
+    , m_trayIcon(nullptr)
+    , m_trayMenu(nullptr)
 {
     ui->setupUi(this);
-    qDebug() << "nh";
-    // 构造函数中
-    m_pluginManager = new PluginManager(this);
-    m_pluginManager->setPluginsRoot(QCoreApplication::applicationDirPath() + "/Plugins");
-    m_pluginManager->refreshPluginList();
-    m_pluginManager->startAutoStartPlugins();
 
-    KLKVMap map;
-    map.deserialize("key1=value1;key2=value2");
+    // 启动守护进程
+    connect(m_daemon, &Daemon::logMessage, this, [](const QString &msg) {
+        qDebug() << msg;
+    });
 
+    m_daemon->start();
 
-//    QList<OpenSocketResponser*> responsers;
-//    for (int i = 0; i < 100; ++i) {
-//        // 如果你希望每个实例有不同的参数，可以动态生成
-//        QString param1 = QString("0x%1").arg(i, 8, 16, QChar('0'));
-//        QString param2 = QString("0x%1").arg(i + 100, 8, 16, QChar('0'));
-//        OpenSocketResponser *resp = new OpenSocketResponser(param1, param2, this);
-//        // 如果该对象需要连接服务器，可能需要调用 start() 等方法
-//        // resp->start();
-//        responsers.append(resp);
-//    }
+    // 创建托盘
+    createTrayIcon();
+
+    // 默认不显示主窗口
+    hide();
 }
 
 KnotHubCore::~KnotHubCore()
 {
+    m_daemon->stop();
     delete ui;
+}
+
+void KnotHubCore::createTrayIcon()
+{
+    m_trayMenu = new QMenu(this);
+
+    QAction *showAction = m_trayMenu->addAction("显示主窗口");
+    connect(showAction, &QAction::triggered, this, &KnotHubCore::showWindow);
+
+    m_trayMenu->addSeparator();
+
+    QAction *quitAction = m_trayMenu->addAction("退出");
+    connect(quitAction, &QAction::triggered, qApp, &QApplication::quit);
+
+    m_trayIcon = new QSystemTrayIcon(this);
+    m_trayIcon->setIcon(style()->standardIcon(QStyle::SP_ComputerIcon));
+    m_trayIcon->setContextMenu(m_trayMenu);
+    m_trayIcon->setToolTip("KnotHub 守护进程");
+
+    connect(m_trayIcon, &QSystemTrayIcon::activated,
+            this, &KnotHubCore::onTrayActivated);
+
+    m_trayIcon->show();
+}
+
+void KnotHubCore::onTrayActivated(QSystemTrayIcon::ActivationReason reason)
+{
+    if (reason == QSystemTrayIcon::DoubleClick) {
+        showWindow();
+    }
+}
+
+void KnotHubCore::showWindow()
+{
+    if (isVisible()) {
+        hide();
+    } else {
+        show();
+        raise();
+        activateWindow();
+    }
+}
+
+void KnotHubCore::updateTrayTooltip()
+{
+    int count = m_daemon->pluginManager()->pluginNames().size();
+    m_trayIcon->setToolTip(QString("KnotHub 守护进程\n插件数: %1").arg(count));
 }
