@@ -139,8 +139,10 @@ KnotHub/
 
 ### 3. 配方 (Recipe)
 - **来源**：`Recipes/` 目录树中的 `.py` 和 `.kln`（ZIP 包，运行时解压）
-- **管理**：RecipeManager 负责文件 CRUD + 执行
+- **管理**：RecipeManager 支持文件树 CRUD + 文件夹管理 + 拖拽导入 + 执行
 - **执行**：`python <script>` 或解压 `.kln` 后运行 `main.py`
+- **导入**：拖 `.py`/`.kln` 到页面 → `import_recipe` 命令复制到 `Recipes/`，`__root__` 映射为根目录
+- **文件夹**：新建时名称以 `/` 结尾 → `create_folder` 命令创建目录
 
 ## 插件清单格式
 
@@ -229,6 +231,91 @@ C:\Users\<name>\AppData\Local\Programs\KnotHub\
 | KnotHubCore.exe | 21MB | — |
 | knot-hub-dash.exe | 10MB | — |
 | **总计** | ~31MB | **~12MB** (zlib) |
+
+## NSIS 注意事项
+
+- 脚本必须是 **ACP 编码**（不能是 UTF-8），否则 makensis 报 `Bad text encoding`
+- 用户级安装需 `RequestExecutionLevel user` + `SetShellVarContext current`
+- `$DESKTOP` / `$SMPROGRAMS` 不设 `SetShellVarContext current` 会写到公共目录（需管理员权限）
+- 版本信息缺少 `LegalCopyright` 只会 warning，不影响构建
+
+## 拖拽安装模式
+
+两个页面共用相同模式，基于 Tauri `onDragDropEvent`：
+
+### 插件安装 (Nodes.tsx)
+```
+拖 .zip → PluginManager.install_plugin(zip_path)
+  → quazip 解压到 Plugins/<plugin_name>/
+  → 验证 plugin_manifest.json → refreshPluginList() → 返回 ok
+  → 前端自动刷新列表
+```
+
+### 配方导入 (Interconnect.tsx)
+```
+拖 .py/.kln →
+  if 悬停文件夹 → target_dir = 文件夹绝对路径
+  else          → target_dir = tree.id (__root__)
+  → RecipeManager.import_recipe(source, target, overwrite)
+  → QFile::copy → 刷新树 → 返回 ok
+  文件已存在 → 返回 "error: file exists" → 前端弹窗询问覆盖
+```
+
+### 拖拽 UI 状态
+- `dragOver: boolean` — 文件进入窗口时变 true，显示蓝色虚线覆盖层
+- `dragTarget: string` — 悬停在文件夹行上时高亮该行，显示 "📥 放到这里"
+- `importMsg: string | null` — 导入结果提示条（蓝底成功 / 红底失败）
+
+## KL 命令速查
+
+### PluginManager (0x00000011)
+| 命令 | 参数 | 说明 |
+|------|------|------|
+| `get_plugin_list` | — | 返回插件列表 JSON |
+| `get_plugins_root` | — | 返回 Plugins 目录绝对路径 |
+| `get_detail` | plugin_name | 返回单个插件详情 |
+| `plugin_control` | action, plugin_name | start / stop / restart |
+| `update_config` | plugin_name, autostart | 修改自启配置 |
+| `get_funclist` | plugin_name | 返回 FuncList.json 内容 |
+| `install_plugin` | zip_path | 解压 zip 到 Plugins/ |
+| `refresh` | — | 重新扫描并返回列表 |
+
+### StandaloneManager (0x00000012)
+| 命令 | 参数 | 说明 |
+|------|------|------|
+| `get_standalone_list` | — | 扫描注册表并返回列表 |
+| `get_detail` | plugin_name | 返回单个节点详情 |
+| `get_funclist` | plugin_name | 返回 FuncList.json |
+| `refresh` | — | 重新扫描注册表 |
+
+### RecipeManager (0x00000013)
+| 命令 | 参数 | 说明 |
+|------|------|------|
+| `get_recipe_tree` | — | 返回目录树 JSON |
+| `get_recipes_root` | — | 返回 Recipes 目录绝对路径 |
+| `recipe_run` | file_path | 执行 Python 配方 |
+| `recipe_stop` | file_path | 停止配方 |
+| `recipe_status` | file_path | 返回 running/stopped |
+| `recipe_read` | file_path | 读取文件内容 |
+| `recipe_save` | file_path, content | 创建/覆盖文件 |
+| `recipe_delete` | file_path | 删除文件或目录 |
+| `import_recipe` | source_path, target_dir, overwrite | 复制文件到 Recipes/ |
+| `create_folder` | path | 创建目录 |
+
+## Rust Tauri 命令
+
+除上述 KL 命令的 Tauri 包装外，还有本地命令：
+
+| 命令 | 参数 | 说明 |
+|------|------|------|
+| `open_folder` | path | explorer 打开任意目录 |
+| `open_app_dir` | sub | 打开 exe 同目录下的子目录（如 Recipes），不存在则创建 |
+| `get_core_autostart` | — | 检查 HKCU Run 中是否有 KnotHub |
+| `set_core_autostart` | enable | 写/删 HKCU Run |
+| `get_knotlink_addr` | — | 返回 127.0.0.1:6376 |
+| `check_service_port` | addr | TCP 连接检测端口是否在线 |
+
+> 注意：`open_folder` 用 `explorer <path>` 打开目录。若路径不存在，explorer 会打开"文档"文件夹而非报错，所以 `open_app_dir` 会先 `create_dir_all` 确保目录存在。
 
 ## NSIS 注意事项
 
