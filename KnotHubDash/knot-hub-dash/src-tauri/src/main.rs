@@ -1,6 +1,6 @@
 // src-tauri/src/main.rs
-mod nodes;  // 导入节点模块（需在 src-tauri/src/nodes.rs 中实现）
-// 声明 knotlink_lib 模块（模块文件位于 src/knotlink_lib/）
+mod nodes;
+mod recipes;
 mod knotlink_lib;
 
 // 重新导出常用类型（可选，方便命令中使用）
@@ -93,13 +93,21 @@ fn main() {
     nodes::get_node_detail,
     nodes::set_node_autostart,
     nodes::get_nodes_list,
+    nodes::refresh_nodes,
     nodes::start_node,
     nodes::stop_node,
     nodes::delete_node,
     nodes::update_node_settings,
     nodes::open_node_home,
-    nodes::get_node_manifest,    // 新增
-    nodes::call_open_socket,     // 新增
+    nodes::get_node_manifest,
+    nodes::call_open_socket,
+    recipes::get_recipe_tree,
+    recipes::recipe_run,
+    recipes::recipe_stop,
+    recipes::recipe_status,
+    recipes::recipe_read,
+    recipes::recipe_save,
+    recipes::recipe_delete,
     query_node,
 ])
         .run(tauri::generate_context!())

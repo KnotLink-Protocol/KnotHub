@@ -6,6 +6,8 @@
 #include <QJsonArray>
 #include <QDebug>
 #include <QCoreApplication>
+#include <QTemporaryDir>
+#include "../quazip/JlCompress.h"
 
 RecipeManager::RecipeManager(QObject *parent)
     : QObject(parent)
@@ -60,8 +62,8 @@ QJsonArray RecipeManager::scanChildren(const QDir &dir) const
         children.append(folder);
     }
 
-    // 再 Python 文件
-    QFileInfoList files = dir.entryInfoList(QStringList() << "*.py", QDir::Files, QDir::Name);
+    // 配方文件：.py 和 .kln
+    QFileInfoList files = dir.entryInfoList(QStringList() << "*.py" << "*.kln", QDir::Files, QDir::Name);
     for (const QFileInfo &info : files) {
         QJsonObject recipe;
         recipe["id"] = info.absoluteFilePath();
@@ -107,7 +109,30 @@ bool RecipeManager::runRecipe(const QString &filePath)
         return false;
     }
 
-    loader->start("python", QStringList() << filePath);
+    QString program = "python";
+    QStringList args;
+
+    if (filePath.endsWith(".kln")) {
+        // .kln 是 zip 包，解压到临时目录，运行里面的 main.py
+        QTemporaryDir *tmpDir = new QTemporaryDir();
+        tmpDir->setAutoRemove(true);
+        QStringList extracted = JlCompress::extractDir(filePath, tmpDir->path());
+        if (extracted.isEmpty()) {
+            emit logMessage(QString("Failed to extract .kln: %1").arg(filePath));
+            return false;
+        }
+        QString mainPy = tmpDir->path() + "/main.py";
+        if (!QFile::exists(mainPy)) {
+            emit logMessage(QString("No main.py found in .kln: %1").arg(filePath));
+            return false;
+        }
+        args << mainPy;
+        emit logMessage(QString("Extracted .kln, running main.py"));
+    } else {
+        args << filePath;
+    }
+
+    loader->start(program, args);
     if (loader->statuscheck()) {
         emit recipeStarted(filePath);
         emit logMessage(QString("Recipe started: %1").arg(filePath));

@@ -53,6 +53,15 @@ public:
 
     QByteArray exportPluginListToJson();
 
+    // 独立式节点（注册表发现）
+    struct StandaloneNode {
+        QString appId;
+        QString installPath;
+        QString name;
+    };
+    QList<StandaloneNode> standaloneNodes() const { return m_standaloneNodes; }
+    void scanStandaloneNodes();
+
     // 配方命令转发
     void setRecipeManager(RecipeManager *rm) { m_recipeManager = rm; }
 
@@ -82,6 +91,7 @@ private:
     OpenSocketResponser *m_openSocketResponser;
     KLKVMap operationInfo;
     RecipeManager *m_recipeManager = nullptr;
+    QList<StandaloneNode> m_standaloneNodes;
 
     bool updatePluginConfig(const QString &pluginName, const QString &autostart);
     bool savePluginManifest(const QString &pluginName);

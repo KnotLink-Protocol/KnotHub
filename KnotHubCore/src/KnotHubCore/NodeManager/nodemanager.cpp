@@ -5,8 +5,10 @@
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QJsonArray>
 #include <QDebug>
 #include <QThread>
+#include <QSettings>
 #include "kludf.h"
 
 PluginManager::PluginManager(QObject *parent)
@@ -16,6 +18,8 @@ PluginManager::PluginManager(QObject *parent)
     m_openSocketResponser = new OpenSocketResponser("0x00000002","0x00000011");
     connect(m_openSocketResponser, &OpenSocketResponser::receivedData,
             this, &PluginManager::onKnotLinkRecieveData);
+
+    scanStandaloneNodes();
 }
 
 void PluginManager::setPluginsRoot(const QString &path)
@@ -114,6 +118,41 @@ QStringList PluginManager::refreshPluginList()
     }
 
     return currentPluginNames;
+}
+
+void PluginManager::scanStandaloneNodes()
+{
+    m_standaloneNodes.clear();
+    QSettings settings("HKEY_CURRENT_USER\\Software\\KnotLink\\StandaloneNodes",
+                       QSettings::NativeFormat);
+    QStringList appIds = settings.childKeys();
+
+    for (const QString &appId : appIds) {
+        QString installPath = settings.value(appId).toString();
+        QDir dir(installPath);
+        if (!dir.exists()) continue;
+
+        // 读 FuncList.json 取名称
+        QString funcListPath = dir.absoluteFilePath("FuncList.json");
+        QString name = appId; // 默认用 appId
+        if (QFile::exists(funcListPath)) {
+            QFile file(funcListPath);
+            if (file.open(QIODevice::ReadOnly)) {
+                QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+                if (doc.isObject()) {
+                    name = doc.object().value("appName").toString(appId);
+                }
+                file.close();
+            }
+        }
+
+        StandaloneNode node;
+        node.appId = appId;
+        node.installPath = installPath;
+        node.name = name;
+        m_standaloneNodes.append(node);
+        qDebug() << "Standalone node found:" << appId << "->" << installPath;
+    }
 }
 
 NodeLoader* PluginManager::getOrCreateLoader(const QString &pluginName)
@@ -282,6 +321,8 @@ bool PluginManager::updatePluginConfig(const QString &pluginName, const QString 
 QByteArray PluginManager::exportPluginListToJson()
 {
     QJsonArray pluginsArray;
+
+    // 插入式节点
     for (auto it = m_pluginInfos.begin(); it != m_pluginInfos.end(); ++it) {
         const PluginInfo &info = it.value();
         QJsonObject obj;
@@ -289,9 +330,24 @@ QByteArray PluginManager::exportPluginListToJson()
         obj["author"] = info.author;
         obj["app_id"] = info.appId;
         obj["version"] = info.version;
-        obj["status"] = isPluginRunning(info.pluginName)?"运行中":"停止";
+        obj["status"] = isPluginRunning(info.pluginName) ? "运行中" : "停止";
+        obj["node_type"] = "plugin";
         pluginsArray.append(obj);
     }
+
+    // 独立式节点
+    for (const auto &node : m_standaloneNodes) {
+        QJsonObject obj;
+        obj["plugin_name"] = node.appId;
+        obj["app_id"] = node.appId;
+        obj["author"] = "";
+        obj["version"] = "";
+        obj["status"] = "独立运行";
+        obj["node_type"] = "standalone";
+        obj["name"] = node.name;
+        pluginsArray.append(obj);
+    }
+
     QJsonObject root;
     root["plugins"] = pluginsArray;
     return QJsonDocument(root).toJson();
@@ -438,6 +494,7 @@ void PluginManager::onKnotLinkRecieveData(const QString &data, QString questionI
     else if(cmd=="refresh")
     {
         refreshPluginList();
+        scanStandaloneNodes();
         QByteArray json = exportPluginListToJson();
         relpy_str = QString::fromUtf8(json);
     }

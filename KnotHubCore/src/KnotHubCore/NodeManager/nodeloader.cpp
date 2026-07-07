@@ -50,15 +50,27 @@ void NodeLoader::stop()
     if (!m_isRunning)
         return;
 
-    m_process->terminate();
-    bool terminated = m_process->waitForFinished(3000);
-    if (!terminated) {
-        qWarning() << "Process didn't terminate gracefully, killing...";
+    qint64 pid = m_process->processId();
+
+    // 1. taskkill /F /T 先杀进程树（含所有子进程）
+    if (pid > 0) {
+        QProcess::execute("taskkill", QStringList()
+            << "/F" << "/T" << "/PID" << QString::number(pid));
+        m_process->waitForFinished(2000);
+    }
+
+    // 2. 如果 taskkill 失败，QProcess 兜底
+    if (m_process->state() != QProcess::NotRunning) {
+        m_process->terminate();
+        m_process->waitForFinished(2000);
+    }
+    if (m_process->state() != QProcess::NotRunning) {
         m_process->kill();
         m_process->waitForFinished(1000);
     }
+
     m_isRunning = false;
-    qDebug() << "Process stopped";
+    qDebug() << "Process stopped (pid:" << pid << ")";
 }
 
 bool NodeLoader::statuscheck() const

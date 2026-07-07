@@ -16,6 +16,7 @@ interface NodeSummary {
   hot_role: string;
   author: string;
   version: string;
+  node_type: string;
 }
 
 export default function Nodes() {
@@ -127,8 +128,8 @@ export default function Nodes() {
       <div className="section">
         <div className="section-header">
           <div className="section-title">节点管理</div>
-          <button className="btn btn-sm" onClick={() => alert('安装插件（演示）')}>
-            安装插件
+          <button className="btn btn-sm" onClick={async () => { setLoading(true); try { const data = await invoke<NodeSummary[]>('refresh_nodes'); setNodes(data); } catch(e) { console.error(e); } finally { setLoading(false); } }}>
+            🔄 刷新列表
           </button>
         </div>
         <div className={styles.nodesList}>
@@ -143,13 +144,15 @@ export default function Nodes() {
                 <span className={styles.appId}>{node.app_id}</span>
                 <div className={styles.topRight}>
                   <span className={getStatusClass(node.status)}>{node.status}</span>
-                  <button
-                    className={`btn btn-sm ${styles.iconBtn} ${styles.deleteIcon} btn-danger ${styles.noBorder}`}
-                    aria-label="删除"
-                    onClick={(e) => handleAction('delete', node.id, e)}
-                  >
-                    <img src={deleteIcon} alt="删除" className={styles.deleteSvg} />
-                  </button>
+                  {node.node_type !== 'standalone' && (
+                    <button
+                      className={`btn btn-sm ${styles.iconBtn} ${styles.deleteIcon} btn-danger ${styles.noBorder}`}
+                      aria-label="删除"
+                      onClick={(e) => handleAction('delete', node.id, e)}
+                    >
+                      <img src={deleteIcon} alt="删除" className={styles.deleteSvg} />
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -160,17 +163,19 @@ export default function Nodes() {
                   <span className={styles.name}>{node.id}</span>
                 </div>
                 <div className={styles.actions}>
-                  <button
-                    className={`btn btn-sm ${styles.iconBtn} ${styles.noBorder}`}
-                    aria-label={node.status === '运行中' ? '停止' : '启动'}
-                    onClick={(e) => handleAction(node.status === '运行中' ? 'stop' : 'start', node.id, e)}
-                  >
-                    <img
-                      src={node.status === '运行中' ? stopIcon : startIcon}
-                      alt={node.status === '运行中' ? '停止' : '启动'}
-                      className={styles.actionIcon}
-                    />
-                  </button>
+                  {node.node_type !== 'standalone' && (
+                    <button
+                      className={`btn btn-sm ${styles.iconBtn} ${styles.noBorder}`}
+                      aria-label={node.status === '运行中' ? '停止' : '启动'}
+                      onClick={(e) => handleAction(node.status === '运行中' ? 'stop' : 'start', node.id, e)}
+                    >
+                      <img
+                        src={node.status === '运行中' ? stopIcon : startIcon}
+                        alt={node.status === '运行中' ? '停止' : '启动'}
+                        className={styles.actionIcon}
+                      />
+                    </button>
+                  )}
                   <button
                     className={`btn btn-sm ${styles.iconBtn} ${styles.noBorder}`}
                     aria-label="设置"

@@ -63,7 +63,7 @@ pub async fn init_querier() -> Result<(), String> {
     Ok(())
 }
 
-fn get_querier() -> &'static Mutex<OpenSocketQuerier> {
+pub(crate) fn get_querier() -> &'static Mutex<OpenSocketQuerier> {
     QUERIER.get().expect("Querier not initialized")
 }
 
@@ -117,10 +117,11 @@ pub struct NodeSummary {
     pub id: String,
     pub app_id: String,
     pub role: String,
-    pub status: String,     // 直接使用字符串 "运行中" 或 "停止"
+    pub status: String,
     pub hot_role: String,
     pub author: String,
     pub version: String,
+    pub node_type: String,
 }
 // ---------- 解析服务端 JSON 的中间结构 ----------
 #[derive(Debug, Deserialize)]
@@ -128,8 +129,10 @@ struct RawPlugin {
     app_id: String,
     author: String,
     plugin_name: String,
-    status: String,         // 字符串类型
+    status: String,
     version: String,
+    #[serde(default)]
+    node_type: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -161,11 +164,12 @@ pub async fn get_nodes_list() -> Result<Vec<NodeSummary>, String> {
         NodeSummary {
             id: p.plugin_name,
             app_id: p.app_id,
-            role: "".to_string(),         // 若服务端未提供，可留空或设置默认
-            status: p.status,              // 直接使用 "运行中"/"停止"
-            hot_role: "".to_string(),      // 同理
+            role: String::new(),
+            status: p.status,
+            hot_role: String::new(),
             author: p.author,
             version: p.version,
+            node_type: p.node_type,
         }
     }).collect();
 
@@ -288,4 +292,31 @@ pub async fn call_open_socket(
         .await
         .map_err(|e| e.to_string())?;
     Ok(response)
+}
+
+#[tauri::command]
+pub async fn refresh_nodes() -> Result<Vec<NodeSummary>, String> {
+    let querier = get_querier().lock().await;
+    let mut req: HashMap<String, String> = HashMap::new();
+    req.insert("cmd".into(), "refresh".into());
+    let request = KvMapExt::serialize(&req);
+    let response = querier.query_l(request).await.map_err(|e| e.to_string())?;
+
+    let raw_response: RawPluginsResponse = serde_json::from_str(&response)
+        .map_err(|e| format!("解析插件列表失败: {}", e))?;
+
+    let summaries = raw_response.plugins.into_iter().map(|p| {
+        NodeSummary {
+            id: p.plugin_name,
+            app_id: p.app_id,
+            role: String::new(),
+            status: p.status,
+            hot_role: String::new(),
+            author: p.author,
+            version: p.version,
+            node_type: p.node_type,
+        }
+    }).collect();
+
+    Ok(summaries)
 }
