@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { ThemeProvider } from './context/ThemeContext';
-import { useTheme } from './context/ThemeContext';
 import ThemeToggle from './components/ThemeToggle';
 import './App.css';
 
@@ -59,7 +58,6 @@ function NavBar() {
         ))}
       </nav>
       <div className="footer-note">
-        双机热备 · 实时同步
         <ThemeToggle />
       </div>
     </div>

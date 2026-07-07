@@ -1,4 +1,3 @@
-import React from 'react';
 import cx from 'classnames';
 import { useTheme } from '../../context/ThemeContext';
 import './index.less';

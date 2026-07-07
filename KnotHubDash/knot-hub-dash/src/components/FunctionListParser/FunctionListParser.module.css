@@ -143,8 +143,3 @@
   font-style: italic;
   padding: 8px 0;
 }
-
-/* 可选：紧凑模式微调（保留，但不再使用） */
-.compactContainer {
-  /* 已废弃，保留以防引用 */
-}

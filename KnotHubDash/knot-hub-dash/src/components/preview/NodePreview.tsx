@@ -36,17 +36,7 @@ const NodePreview: React.FC<NodePreviewProps> = ({ nodeId }) => {
   const fetchDetail = async () => {
     try {
       setLoading(true);
-      // TODO: 替换为真实的后端调用
       const data = await invoke<NodeDetail>('get_node_detail', { nodeId });
-      const mockData: NodeDetail = {
-        pluginName: 'KnotHub 核心插件',
-        appId: '0x0000A001',
-        author: '课堂助手团队',
-        version: 'v1.2.0',
-        description: '管理 KnotHub 服务中枢的核心节点',
-        status: '运行中',
-        autoStart: true,
-      };
       setDetail(data);
       setError(null);
     } catch (err: any) {
