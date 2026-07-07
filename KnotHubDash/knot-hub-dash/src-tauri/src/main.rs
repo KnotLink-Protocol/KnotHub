@@ -137,10 +137,14 @@ fn main() {
     recipes::recipe_delete,
     recipes::recipe_import,
     recipes::recipe_create_folder,
+    recipes::get_recipes_root,
+    recipes::get_plugins_root,
     // 设置
     nodes::get_core_autostart,
     nodes::set_core_autostart,
     nodes::get_knotlink_addr,
+    nodes::open_folder,
+    nodes::open_app_dir,
     query_node,
     check_service_port,
 ])

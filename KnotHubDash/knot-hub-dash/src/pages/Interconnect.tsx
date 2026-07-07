@@ -307,6 +307,9 @@ export default function Interconnect() {
             <button className="btn btn-sm" onClick={() => handleNew(tree?.id || 'Recipes')}>
               新建配方
             </button>
+            <button className="btn btn-sm" onClick={() => {
+              invoke('open_app_dir', { sub: 'Recipes' }).catch(err => alert(`打开失败: ${err}`));
+            }}>📂 打开目录</button>
           </div>
         </div>
         {tree && renderTree(tree)}

@@ -448,6 +448,9 @@ void PluginManager::onKnotLinkRecieveData(const QString &data, QString questionI
         reply = QString::fromUtf8(exportPluginListToJson());
         qDebug() << reply;
 
+    } else if (cmd == "get_plugins_root") {
+        reply = m_pluginsRoot;
+
     } else if (cmd == "get_detail") {
         QString plugin_name = kvMap["plugin_name"];
         PluginInfo info = pluginInfo(plugin_name);

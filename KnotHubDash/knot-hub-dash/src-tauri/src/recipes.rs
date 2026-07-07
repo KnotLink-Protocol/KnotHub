@@ -88,3 +88,13 @@ pub async fn recipe_import(
 pub async fn recipe_create_folder(path: String) -> Result<String, String> {
     crate::nodes::recipe_query(&kv("create_folder", &[("path", &path)])).await
 }
+
+#[tauri::command]
+pub async fn get_recipes_root() -> Result<String, String> {
+    crate::nodes::recipe_query(&kv("get_recipes_root", &[])).await
+}
+
+#[tauri::command]
+pub async fn get_plugins_root() -> Result<String, String> {
+    crate::nodes::plugin_query(&kv("get_plugins_root", &[])).await
+}

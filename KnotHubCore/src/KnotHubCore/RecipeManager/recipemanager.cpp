@@ -288,6 +288,9 @@ void RecipeManager::onKnotLinkData(const QString &data, const QString &questionI
     if (cmd == "get_recipe_tree") {
         reply = QString::fromUtf8(scanTree());
 
+    } else if (cmd == "get_recipes_root") {
+        reply = m_recipesRoot;
+
     } else if (cmd == "recipe_run") {
         QString path = kvMap["file_path"];
         reply = runRecipe(path) ? "ok" : "error: failed to run recipe";

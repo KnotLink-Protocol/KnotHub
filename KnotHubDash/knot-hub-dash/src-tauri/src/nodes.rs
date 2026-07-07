@@ -34,7 +34,7 @@ pub(crate) fn get_querier() -> &'static Mutex<OpenSocketQuerier> {
 
 // ── 通用查询辅助 ──────────────────────────────────────────────
 
-async fn plugin_query(payload: &HashMap<String, String>) -> Result<String, String> {
+pub(crate) async fn plugin_query(payload: &HashMap<String, String>) -> Result<String, String> {
     let q = get_querier().lock().await;
     q.query_with_ids(APP_ID, SOCKET_PLUGIN, KvMapExt::serialize(payload))
         .await
@@ -390,4 +390,29 @@ pub async fn set_core_autostart(enable: bool) -> Result<(), String> {
 #[tauri::command]
 pub async fn get_knotlink_addr() -> Result<String, String> {
     Ok("127.0.0.1:6376".into())
+}
+
+#[tauri::command]
+pub async fn open_folder(path: String) -> Result<(), String> {
+    let win_path = path.replace('/', "\\");
+    // explorer 打开文件夹
+    std::process::Command::new("explorer")
+        .arg(&win_path)
+        .spawn()
+        .map_err(|e| format!("{}", e))?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn open_app_dir(sub: String) -> Result<(), String> {
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    let dir = exe.parent().ok_or("no parent dir")?.join(&sub);
+    // 确保目录存在，否则 explorer 会打开文档文件夹
+    std::fs::create_dir_all(&dir).map_err(|e| format!("{}", e))?;
+    let path = dir.to_string_lossy().replace('/', "\\");
+    std::process::Command::new("explorer")
+        .arg(&path)
+        .spawn()
+        .map_err(|e| format!("{}", e))?;
+    Ok(())
 }
