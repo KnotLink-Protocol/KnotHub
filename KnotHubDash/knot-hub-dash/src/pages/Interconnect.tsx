@@ -146,9 +146,12 @@ export default function Interconnect() {
       <div className="section">
         <div className="section-header">
           <div className="section-title">配方树</div>
-          <button className="btn btn-sm" onClick={() => handleNew(tree?.id || 'Recipes')}>
-            新建配方
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn btn-sm" onClick={loadTree}>🔄 刷新</button>
+            <button className="btn btn-sm" onClick={() => handleNew(tree?.id || 'Recipes')}>
+              新建配方
+            </button>
+          </div>
         </div>
         {tree && renderTree(tree)}
       </div>

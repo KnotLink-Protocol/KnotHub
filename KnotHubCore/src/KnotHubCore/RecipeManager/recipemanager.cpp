@@ -258,5 +258,7 @@ void RecipeManager::onKnotLinkData(const QString &data, const QString &questionI
         reply = "Error: unknown command: " + cmd;
     }
 
+    qDebug()<<reply;
+
     m_responder->sendBack(reply, questionID);
 }

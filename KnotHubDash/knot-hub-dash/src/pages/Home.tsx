@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { invoke } from '@tauri-apps/api/core';
 
 interface NodeSummary {
@@ -7,6 +8,7 @@ interface NodeSummary {
 }
 
 export default function Home() {
+  const nav = useNavigate();
   const [knotlinkOk, setKnotlinkOk] = useState<boolean | null>(null);
   const [pluginCount, setPluginCount] = useState<number | null>(null);
   const [standaloneCount, setStandaloneCount] = useState<number | null>(null);
@@ -60,15 +62,15 @@ export default function Home() {
             {knotlinkOk === true ? '在线' : knotlinkOk === false ? '离线' : '检测中'}
           </div>
         </div>
-        <div className="stat-card" onClick={() => window.location.hash = '#/nodes'}>
+        <div className="stat-card" onClick={() => nav('/nodes')}>
           <div className="stat-title">插入式节点</div>
           <div className="stat-value">{fmt(pluginCount)}</div>
         </div>
-        <div className="stat-card" onClick={() => window.location.hash = '#/nodes'}>
+        <div className="stat-card" onClick={() => nav('/nodes')}>
           <div className="stat-title">独立式节点</div>
           <div className="stat-value">{fmt(standaloneCount)}</div>
         </div>
-        <div className="stat-card" onClick={() => window.location.hash = '#/interconnect'}>
+        <div className="stat-card" onClick={() => nav('/interconnect')}>
           <div className="stat-title">互联配方</div>
           <div className="stat-value">{fmt(recipeCount)}</div>
         </div>
@@ -80,10 +82,10 @@ export default function Home() {
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn" onClick={refresh}>🔄 刷新全部</button>
-          <button className="btn" onClick={() => window.location.hash = '#/nodes'}>
+          <button className="btn" onClick={() => nav('/nodes')}>
             📋 节点管理
           </button>
-          <button className="btn" onClick={() => window.location.hash = '#/interconnect'}>
+          <button className="btn" onClick={() => nav('/interconnect')}>
             🐍 配方列表
           </button>
         </div>
