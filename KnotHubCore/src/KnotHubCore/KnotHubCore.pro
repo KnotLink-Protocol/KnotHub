@@ -38,7 +38,8 @@ SOURCES += \
     NodeManager/nodemanager.cpp \
     NodeManager/nodeloader.cpp \
     NodeManager/nodeinstaller.cpp \
-    NodeManager/plugininfo.cpp
+    NodeManager/plugininfo.cpp \
+    RecipeManager/recipemanager.cpp
 
 HEADERS += \
         knothubcore.h \
@@ -46,7 +47,8 @@ HEADERS += \
     NodeManager/nodemanager.h \
     NodeManager/nodeloader.h \
     NodeManager/nodeinstaller.h \
-    NodeManager/plugininfo.h
+    NodeManager/plugininfo.h \
+    RecipeManager/recipemanager.h
 
 FORMS += \
         knothubcore.ui

@@ -1,5 +1,6 @@
 #include "nodemanager.h"
 #include "nodeloader.h"
+#include "../RecipeManager/recipemanager.h"
 #include <QDir>
 #include <QFile>
 #include <QJsonDocument>
@@ -297,7 +298,6 @@ QByteArray PluginManager::exportPluginListToJson()
 }
 
 void PluginManager::onKnotLinkRecieveData(const QString &data, QString questionID){
-    // 获取插件列表
     KLKVMap kvMap;
     kvMap.deserialize(data);
 
@@ -305,6 +305,17 @@ void PluginManager::onKnotLinkRecieveData(const QString &data, QString questionI
 
     QString relpy_str = "ok";
     QString cmd = kvMap["cmd"];
+
+    // 配方命令转发
+    if (cmd.startsWith("recipe_") || cmd == "get_recipe_tree") {
+        if (m_recipeManager) {
+            relpy_str = m_recipeManager->handleCommand(cmd, kvMap);
+        } else {
+            relpy_str = "error: recipe manager not available";
+        }
+        m_openSocketResponser->sendBack(relpy_str, questionID);
+        return;
+    }
 
     if(cmd == "get_plugin_list")
     {

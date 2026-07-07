@@ -17,6 +17,7 @@
 #include "plugininfo.h"
 
 class NodeLoader;
+class RecipeManager;
 
 class PluginManager : public QObject
 {
@@ -52,6 +53,9 @@ public:
 
     QByteArray exportPluginListToJson();
 
+    // 配方命令转发
+    void setRecipeManager(RecipeManager *rm) { m_recipeManager = rm; }
+
 signals:
     void pluginListChanged(const QStringList &currentPlugins);
     void pluginStarted(const QString &pluginName);
@@ -77,6 +81,7 @@ private:
     // KnotLink支持
     OpenSocketResponser *m_openSocketResponser;
     KLKVMap operationInfo;
+    RecipeManager *m_recipeManager = nullptr;
 
     bool updatePluginConfig(const QString &pluginName, const QString &autostart);
     bool savePluginManifest(const QString &pluginName);

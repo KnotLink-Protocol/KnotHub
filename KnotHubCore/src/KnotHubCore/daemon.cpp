@@ -5,6 +5,7 @@
 Daemon::Daemon(QObject *parent)
     : QObject(parent)
     , m_pluginManager(nullptr)
+    , m_recipeManager(nullptr)
     , m_running(false)
 {
 }
@@ -18,6 +19,7 @@ bool Daemon::start()
 {
     if (m_running) return true;
 
+    // 插件管理器
     m_pluginManager = new PluginManager(this);
     m_pluginManager->setPluginsRoot(QCoreApplication::applicationDirPath() + "/Plugins");
     m_pluginManager->refreshPluginList();
@@ -36,9 +38,21 @@ bool Daemon::start()
         emit logMessage(QString("Plugin error [%1]: %2").arg(name, err));
     });
 
+    // 配方管理器
+    m_recipeManager = new RecipeManager(this);
+    m_recipeManager->setRecipesRoot(QCoreApplication::applicationDirPath() + "/Recipes");
+    m_pluginManager->setRecipeManager(m_recipeManager);
+
+    connect(m_recipeManager, &RecipeManager::recipeStarted, this, [this](const QString &path) {
+        emit logMessage(QString("Recipe started: %1").arg(path));
+    });
+    connect(m_recipeManager, &RecipeManager::recipeStopped, this, [this](const QString &path) {
+        emit logMessage(QString("Recipe stopped: %1").arg(path));
+    });
+
     m_running = true;
     emit started();
-    emit logMessage("KnotHub daemon started on 127.0.0.1:6376");
+    emit logMessage("KnotHub started");
     return true;
 }
 
@@ -47,9 +61,10 @@ void Daemon::stop()
     if (!m_running) return;
 
     m_pluginManager->stopAllPlugins();
+    m_recipeManager->stopAll();
     m_running = false;
     emit stopped();
-    emit logMessage("KnotHub daemon stopped");
+    emit logMessage("KnotHub stopped");
 }
 
 bool Daemon::isRunning() const
@@ -60,4 +75,9 @@ bool Daemon::isRunning() const
 PluginManager *Daemon::pluginManager() const
 {
     return m_pluginManager;
+}
+
+RecipeManager *Daemon::recipeManager() const
+{
+    return m_recipeManager;
 }
