@@ -9,7 +9,10 @@ interface PortStatus {
 }
 
 const PORTS: PortStatus[] = [
-  { port: '6376',    service: 'KnotLink',       desc: 'KnotLink TCP 通信服务' },
+  { port: '6378', service: 'OpenSocket',      desc: '回答者注册',      status: 'checking' },
+  { port: '6376', service: 'OpenSocket',      desc: '查询请求',        status: 'checking' },
+  { port: '6372', service: 'Signal',          desc: '订阅注册',        status: 'checking' },
+  { port: '6370', service: 'Signal',          desc: '信号发送',        status: 'checking' },
 ];
 
 export default function ServiceStatus() {
@@ -50,7 +53,7 @@ export default function ServiceStatus() {
       <div style={{ marginBottom: 16 }}>
         <h1 style={{ fontSize: 22, fontWeight: 500 }}>服务状态</h1>
         <p style={{ color: '#6c757d' }}>
-          端口监控 · {onlineCount}/{ports.length} 在线
+          KnotLink 四端口监控 · {onlineCount}/{ports.length} 在线
         </p>
       </div>
 

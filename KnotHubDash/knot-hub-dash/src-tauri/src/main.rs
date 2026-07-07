@@ -113,6 +113,7 @@ fn main() {
     nodes::open_node_home,
     // 插入式节点
     nodes::get_plugin_list,
+    nodes::install_plugin,
     nodes::refresh_plugins,
     nodes::start_plugin,
     nodes::stop_plugin,
@@ -134,6 +135,10 @@ fn main() {
     recipes::recipe_read,
     recipes::recipe_save,
     recipes::recipe_delete,
+    // 设置
+    nodes::get_core_autostart,
+    nodes::set_core_autostart,
+    nodes::get_knotlink_addr,
     query_node,
     check_service_port,
 ])

@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::OnceLock;
+use std::process::Command;
 use serde_json::json;
 use serde::{Serialize, Deserialize};
 use crate::knotlink_lib::{OpenSocketQuerier, KvMapExt};
@@ -179,6 +180,14 @@ pub async fn get_plugin_list() -> Result<Vec<NodeSummary>, String> {
 }
 
 #[tauri::command]
+pub async fn install_plugin(zip_path: String) -> Result<(), String> {
+    let resp = plugin_query(&kv("install_plugin", &[
+        ("zip_path", &zip_path)
+    ])).await?;
+    if resp == "ok" { Ok(()) } else { Err(resp) }
+}
+
+#[tauri::command]
 pub async fn refresh_plugins() -> Result<Vec<NodeSummary>, String> {
     let resp = plugin_query(&kv("refresh", &[])).await?;
     let raw: RawPluginsResponse = serde_json::from_str(&resp)
@@ -340,4 +349,45 @@ pub async fn update_node_settings(plugin_name: String, settings: String) -> Resu
 pub async fn open_node_home(plugin_name: String) -> Result<(), String> {
     println!("open_node_home {}", plugin_name);
     Ok(())
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 系统设置
+// ═══════════════════════════════════════════════════════════════
+
+const RUN_KEY: &str = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run";
+const RUN_VALUE: &str = "KnotHub";
+
+#[tauri::command]
+pub async fn get_core_autostart() -> Result<bool, String> {
+    let output = Command::new("reg")
+        .args(["query", RUN_KEY, "/v", RUN_VALUE])
+        .output()
+        .map_err(|e| e.to_string())?;
+    Ok(output.status.success())
+}
+
+#[tauri::command]
+pub async fn set_core_autostart(enable: bool) -> Result<(), String> {
+    if enable {
+        let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+        let dir = exe.parent().ok_or("no parent dir")?;
+        let core = dir.join("KnotHubCore.exe");
+        let path = core.to_string_lossy().to_string();
+        Command::new("reg")
+            .args(["add", RUN_KEY, "/v", RUN_VALUE, "/d", &path, "/f"])
+            .output()
+            .map_err(|e| e.to_string())?;
+    } else {
+        Command::new("reg")
+            .args(["delete", RUN_KEY, "/v", RUN_VALUE, "/f"])
+            .output()
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_knotlink_addr() -> Result<String, String> {
+    Ok("127.0.0.1:6376".into())
 }

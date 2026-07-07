@@ -2,11 +2,14 @@
 #include "nodeloader.h"
 #include <QDir>
 #include <QFile>
+#include <QDirIterator>
+#include <QTemporaryDir>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QDebug>
 #include <QThread>
+#include "../quazip/JlCompress.h"
 #include "kludf.h"
 
 PluginManager::PluginManager(QObject *parent)
@@ -327,6 +330,107 @@ bool PluginManager::savePluginManifest(const PluginInfo &info)
 }
 
 // ═══════════════════════════════════════════════════════════════
+// 安装插件 — 解压 zip 到 Plugins/ 目录
+// ═══════════════════════════════════════════════════════════════
+
+bool PluginManager::installPlugin(const QString &zipPath, QString &error)
+{
+    // 1. 检查 zip 文件
+    if (!QFile::exists(zipPath)) {
+        error = QString("Zip file not found: %1").arg(zipPath);
+        return false;
+    }
+
+    // 2. 先解压到临时目录，读取 manifest 获取 plugin_name
+    QTemporaryDir tmpDir;
+    if (!tmpDir.isValid()) {
+        error = "Failed to create temp directory";
+        return false;
+    }
+
+    QStringList extracted = JlCompress::extractDir(zipPath, tmpDir.path());
+    if (extracted.isEmpty()) {
+        error = "Failed to extract zip (corrupted or empty)";
+        return false;
+    }
+
+    // 查找 plugin_manifest.json（可能在子目录里）
+    QString manifestPath;
+    QDirIterator it(tmpDir.path(), {"plugin_manifest.json"}, QDir::Files,
+                    QDirIterator::Subdirectories);
+    if (it.hasNext()) {
+        manifestPath = it.next();
+    }
+
+    QString pluginName;
+    if (!manifestPath.isEmpty()) {
+        QFile f(manifestPath);
+        if (f.open(QIODevice::ReadOnly)) {
+            QJsonDocument doc = QJsonDocument::fromJson(f.readAll());
+            f.close();
+            if (doc.isObject()) {
+                pluginName = doc.object().value("plugin_name").toString();
+                if (pluginName.isEmpty())
+                    pluginName = doc.object().value("app_id").toString();
+            }
+        }
+    }
+
+    if (pluginName.isEmpty()) {
+        // fallback：用 zip 文件名（去掉扩展名）
+        QFileInfo fi(zipPath);
+        pluginName = fi.completeBaseName();
+    }
+
+    // 3. 解压到 Plugins/<plugin_name>/
+    QString destDir = m_pluginsRoot + "/" + pluginName;
+    QDir().mkpath(destDir);
+
+    // 把临时目录里所有文件复制到目标目录
+    QDir tmpDirRoot(tmpDir.path());
+    QStringList files = tmpDirRoot.entryList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
+    for (const QString &f : files) {
+        QString src  = tmpDir.path() + "/" + f;
+        QString dest = destDir + "/" + f;
+        if (QFileInfo(src).isDir()) {
+            copyDirRecursive(src, dest);
+        } else {
+            QFile::copy(src, dest);
+        }
+    }
+
+    // 4. 验证：目标目录必须有 plugin_manifest.json
+    QString finalManifest = destDir + "/plugin_manifest.json";
+    if (!QFile::exists(finalManifest)) {
+        error = "Installed but no plugin_manifest.json found — "
+                "plugin may not be recognized";
+        return false;
+    }
+
+    // 5. 刷新列表
+    refreshPluginList();
+
+    qDebug() << "[Plugin] Installed:" << pluginName << "from" << zipPath;
+    return true;
+}
+
+void PluginManager::copyDirRecursive(const QString &src, const QString &dst)
+{
+    QDir().mkpath(dst);
+    QDir srcDir(src);
+    QStringList entries = srcDir.entryList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
+    for (const QString &entry : entries) {
+        QString s = src  + "/" + entry;
+        QString d = dst  + "/" + entry;
+        if (QFileInfo(s).isDir()) {
+            copyDirRecursive(s, d);
+        } else {
+            QFile::copy(s, d);
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
 // KnotLink 消息处理 — socketID: 0x00000011（仅插入式节点）
 // ═══════════════════════════════════════════════════════════════
 
@@ -411,6 +515,12 @@ void PluginManager::onKnotLinkRecieveData(const QString &data, QString questionI
                 }
             }
         }
+
+    } else if (cmd == "install_plugin") {
+        QString zipPath = kvMap["zip_path"];
+        QString err;
+        bool ok = installPlugin(zipPath, err);
+        reply = ok ? "ok" : ("error: " + err);
 
     } else if (cmd == "refresh") {
         refreshPluginList();

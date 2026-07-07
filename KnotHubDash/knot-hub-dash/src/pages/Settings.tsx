@@ -1,34 +1,130 @@
+import { useState, useEffect } from 'react';
+import { invoke } from '@tauri-apps/api/core';
+
 export default function Settings() {
+  const [autostart, setAutostart] = useState(false);
+  const [checking, setChecking] = useState(true);
+
+  const knotlinkPorts = [
+    { port: '6378', service: 'OpenSocket', label: '回答者注册' },
+    { port: '6376', service: 'OpenSocket', label: '查询请求' },
+    { port: '6372', service: 'Signal',     label: '订阅注册' },
+    { port: '6370', service: 'Signal',     label: '信号发送' },
+  ];
+  const [portStatus, setPortStatus] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const a = await invoke<boolean>('get_core_autostart');
+        setAutostart(a);
+
+        const results: Record<string, boolean> = {};
+        await Promise.all(knotlinkPorts.map(async ({ port }) => {
+          try {
+            results[port] = await invoke<boolean>('check_service_port', { addr: `127.0.0.1:${port}` });
+          } catch {
+            results[port] = false;
+          }
+        }));
+        setPortStatus(results);
+      } catch (err) {
+        console.error('加载设置失败:', err);
+      } finally {
+        setChecking(false);
+      }
+    })();
+  }, []);
+
+  const toggleAutostart = async () => {
+    try {
+      await invoke('set_core_autostart', { enable: !autostart });
+      setAutostart(!autostart);
+    } catch (err) {
+      alert(`设置失败: ${err}`);
+    }
+  };
+
   return (
     <>
       <div style={{ marginBottom: 16 }}>
         <h1 style={{ fontSize: 22, fontWeight: 500 }}>设置</h1>
-        <p style={{ color: '#6c757d' }}>热备配置与系统参数</p>
+        <p style={{ color: '#6c757d' }}>系统配置与状态</p>
       </div>
+
+      {/* 系统服务 */}
+      <div className="section" style={{ marginBottom: 16 }}>
+        <div className="section-header">
+          <div className="section-title">系统服务</div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {knotlinkPorts.map(({ port, service, label }) => (
+            <div key={port} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontWeight: 500 }}>KnotLink {service}</div>
+                <div style={{ color: '#6c757d', fontSize: 13 }}>{label} · 端口 {port}</div>
+              </div>
+              <span className={portStatus[port] ? 'status-badge' : 'status-badge warning'}>
+                {portStatus[port] === undefined ? '...' : portStatus[port] ? '在线' : '离线'}
+              </span>
+            </div>
+          ))}
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ fontWeight: 500 }}>KnotHubCore 开机自启</div>
+              <div style={{ color: '#6c757d', fontSize: 13 }}>
+                {autostart ? '登录后自动启动守护进程' : '需手动启动'}
+              </div>
+            </div>
+            <button
+              className="btn btn-sm"
+              onClick={toggleAutostart}
+              disabled={checking}
+              style={{
+                background: autostart ? '#667eea' : '#ddd',
+                color: autostart ? '#fff' : '#666',
+                border: 'none',
+                borderRadius: 14,
+                padding: '4px 16px',
+                cursor: 'pointer',
+                fontWeight: 500,
+              }}
+            >
+              {checking ? '...' : autostart ? '已开启 ✓' : '已关闭 ✗'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 数据路径 */}
+      <div className="section" style={{ marginBottom: 16 }}>
+        <div className="section-header">
+          <div className="section-title">数据路径</div>
+        </div>
+        <div style={{ color: '#6c757d', fontSize: 13, lineHeight: 2 }}>
+          <div>插件目录: <code style={{ background: '#f0f0f0', padding: '1px 6px', borderRadius: 3 }}>Plugins\</code></div>
+          <div>配方目录: <code style={{ background: '#f0f0f0', padding: '1px 6px', borderRadius: 3 }}>Recipes\</code></div>
+          <div style={{ marginTop: 4, fontSize: 12 }}>
+            均位于 KnotHubCore.exe 所在目录下
+          </div>
+        </div>
+      </div>
+
+      {/* 关于 */}
       <div className="section">
         <div className="section-header">
-          <div className="section-title">双机热备配置</div>
-          <button className="btn btn-primary btn-sm" onClick={() => alert('保存配置')}>保存配置</button>
+          <div className="section-title">关于</div>
         </div>
-        <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 500, marginBottom: 8 }}>热备实体</div>
-            <div>主实体: 10.2.10.101 | 心跳 active</div>
-            <div>备实体: 10.2.10.102 | 实时同步 (延迟 &lt; 5ms)</div>
-            <div>仲裁策略: 自动故障切换 / 手动干预</div>
+        <div style={{ color: '#6c757d', fontSize: 13, lineHeight: 2 }}>
+          <div>KnotHub v1.0.0</div>
+          <div>KnotLink 协议服务中枢 &amp; 管理面板</div>
+          <div style={{ marginTop: 4 }}>
+            <a href="https://github.com/KnotLink-Protocol/KnotHub" target="_blank" rel="noreferrer"
+               style={{ color: '#667eea' }}>
+              GitHub → KnotLink-Protocol/KnotHub
+            </a>
           </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 500, marginBottom: 8 }}>全局参数</div>
-            <div>心跳间隔: 2秒</div>
-            <div>数据同步模式: 实时</div>
-            <div>断线重试次数: 3次</div>
-          </div>
-        </div>
-        <hr />
-        <div>
-          <button className="btn btn-sm" onClick={() => alert('导入配置')}>导入配置</button>
-          <button className="btn btn-sm" onClick={() => alert('导出热备配置')}>导出热备配置</button>
-          <button className="btn btn-sm" onClick={() => alert('全量下发')}>全量下发</button>
         </div>
       </div>
     </>

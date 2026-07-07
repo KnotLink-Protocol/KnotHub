@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import styles from './Nodes.module.css';
 import deleteIcon from '../assets/delete.svg';
 import startIcon from '../assets/start.svg';
@@ -28,6 +29,44 @@ export default function Nodes() {
   const [plugins, setPlugins] = useState<NodeSummary[]>([]);
   const [standalones, setStandalones] = useState<NodeSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dragOver, setDragOver] = useState(false);
+  const [installMsg, setInstallMsg] = useState<string | null>(null);
+
+  // ── 拖拽安装插件 ──────────────────────────────────────
+  const handleDrop = useCallback(async (paths: string[]) => {
+    setDragOver(false);
+    const zip = paths.find(p => p.endsWith('.zip'));
+    if (!zip) {
+      setInstallMsg('请拖入 .zip 格式的插件包');
+      return;
+    }
+    setInstallMsg('安装中...');
+    try {
+      await invoke('install_plugin', { zipPath: zip });
+      setInstallMsg('插件安装成功');
+      // 刷新列表
+      if (tab === 'plugin') {
+        setPlugins(await invoke<NodeSummary[]>('refresh_plugins'));
+      }
+    } catch (err) {
+      setInstallMsg(`安装失败: ${err}`);
+    }
+  }, [tab]);
+
+  useEffect(() => {
+    const unlisten = getCurrentWindow().onDragDropEvent((event) => {
+      if (event.payload.type === 'over') {
+        setDragOver(true);
+      } else if (event.payload.type === 'leave') {
+        setDragOver(false);
+      } else if (event.payload.type === 'drop') {
+        handleDrop(event.payload.paths);
+      }
+    });
+    return () => {
+      unlisten.then(fn => fn());
+    };
+  }, [handleDrop]);
 
   const fetchAll = async () => {
     setLoading(true);
@@ -137,7 +176,9 @@ export default function Nodes() {
       <div style={{ marginBottom: 16 }}>
         <h1 style={{ fontSize: 22, fontWeight: 500 }}>节点列表</h1>
         <p style={{ color: '#6c757d' }}>
-          {tab === 'plugin' ? '插入式节点 — 本地插件管理' : '独立式节点 — 注册表发现的外部节点'}
+          {tab === 'plugin'
+            ? '插入式节点 — 本地插件管理 | 拖拽 .zip 到此安装'
+            : '独立式节点 — 注册表发现的外部节点'}
         </p>
       </div>
 
@@ -164,10 +205,39 @@ export default function Nodes() {
         </button>
       </div>
 
+      {/* 拖拽安装提示 */}
+      {tab === 'plugin' && installMsg && (
+        <div style={{
+          padding: '8px 16px', marginBottom: 8, borderRadius: 6,
+          background: installMsg.includes('失败') ? '#fee2e2' : '#dbeafe',
+          color: installMsg.includes('失败') ? '#dc2626' : '#2563eb',
+          fontSize: 13,
+        }}>
+          {installMsg}
+          <button onClick={() => setInstallMsg(null)}
+            style={{ marginLeft: 12, cursor: 'pointer', background: 'none', border: 'none', fontSize: 14 }}>
+            ✕
+          </button>
+        </div>
+      )}
+
       {loading ? (
         <div className="loading">加载中...</div>
       ) : (
-        <div className="section">
+        <div className="section" style={{ position: 'relative' }}>
+          {/* 拖拽悬停覆盖层 */}
+          {tab === 'plugin' && dragOver && (
+            <div style={{
+              position: 'absolute', inset: 0, zIndex: 10,
+              border: '3px dashed #667eea', borderRadius: 8,
+              background: 'rgba(102,126,234,0.08)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 18, color: '#667eea', fontWeight: 500,
+              pointerEvents: 'none',
+            }}>
+              📦 释放以安装插件
+            </div>
+          )}
           <div className={styles.nodesList}>
             {nodes.length === 0 && (
               <p style={{ color: '#999', textAlign: 'center', padding: 32 }}>

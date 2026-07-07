@@ -79,7 +79,7 @@ function MainContent() {
   );
 }
 function PreviewBar() {
-  const [previewData, setPreviewData] = useState<{ type: string; id: string; details?: any } | null>(null);
+  const [previewData, setPreviewData] = useState<{ type: string; id: string; details?: any; nodeType?: string } | null>(null);
 
   useEffect(() => {
     const handler = (event: CustomEvent) => {

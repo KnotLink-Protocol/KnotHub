@@ -77,6 +77,10 @@ private:
     bool updatePluginConfig(const QString &pluginName, const QString &autostart);
     bool savePluginManifest(const QString &pluginName);
     bool savePluginManifest(const PluginInfo &info);
+
+    // 安装插件（从 zip 解压到 Plugins/）
+    bool installPlugin(const QString &zipPath, QString &error);
+    static void copyDirRecursive(const QString &src, const QString &dst);
 };
 
 #endif // PLUGINMANAGER_H

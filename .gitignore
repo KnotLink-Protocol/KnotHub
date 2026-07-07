@@ -5,3 +5,4 @@ KnotHubDash/knot-hub-dash/node_modules
 dist
 scripts/staging/
 scripts/bin/
+scripts/nsis/example/
