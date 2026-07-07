@@ -34,6 +34,9 @@ public:
     QByteArray readRecipe(const QString &filePath) const;
     bool saveRecipe(const QString &filePath, const QString &content);
     bool deleteRecipe(const QString &filePath);
+    bool importRecipe(const QString &sourcePath, const QString &targetDir,
+                      bool overwrite, QString &error);
+    bool createFolder(const QString &path, QString &error);
 
 signals:
     void recipeStarted(const QString &filePath);

@@ -211,6 +211,66 @@ bool RecipeManager::deleteRecipe(const QString &filePath)
     return QFile::remove(filePath);
 }
 
+bool RecipeManager::importRecipe(const QString &sourcePath, const QString &targetDir,
+                                  bool overwrite, QString &error)
+{
+    if (!QFile::exists(sourcePath)) {
+        error = QString("Source file not found: %1").arg(sourcePath);
+        return false;
+    }
+
+    QFileInfo fi(sourcePath);
+    QString fileName = fi.fileName();
+
+    // __root__ → 映射到 Recipes 根目录
+    QString destDir = (targetDir == "__root__") ? m_recipesRoot : targetDir;
+    QString destPath = destDir + "/" + fileName;
+
+    // 只接受 .py 和 .kln
+    if (!fileName.endsWith(".py") && !fileName.endsWith(".kln")) {
+        error = "Only .py and .kln files are accepted";
+        return false;
+    }
+
+    if (QFile::exists(destPath)) {
+        if (!overwrite) {
+            error = "file exists";
+            return false;
+        }
+        QFile::remove(destPath);
+    }
+
+    // 确保目标目录存在
+    QDir().mkpath(destDir);
+
+    if (!QFile::copy(sourcePath, destPath)) {
+        error = "Failed to copy file";
+        return false;
+    }
+
+    emit logMessage(QString("Recipe imported: %1").arg(destPath));
+    return true;
+}
+
+bool RecipeManager::createFolder(const QString &path, QString &error)
+{
+    if (path.isEmpty()) {
+        error = "Empty path";
+        return false;
+    }
+    QDir dir;
+    if (dir.exists(path)) {
+        error = "Folder already exists";
+        return false;
+    }
+    if (!dir.mkpath(path)) {
+        error = "Failed to create folder";
+        return false;
+    }
+    emit logMessage(QString("Folder created: %1").arg(path));
+    return true;
+}
+
 // ═══════════════════════════════════════════════════════════════
 // KnotLink 消息处理 — socketID: 0x00000013（配方专用）
 // ═══════════════════════════════════════════════════════════════
@@ -253,6 +313,20 @@ void RecipeManager::onKnotLinkData(const QString &data, const QString &questionI
     } else if (cmd == "recipe_delete") {
         QString path = kvMap["file_path"];
         reply = deleteRecipe(path) ? "ok" : "error: cannot delete";
+
+    } else if (cmd == "import_recipe") {
+        QString src      = kvMap["source_path"];
+        QString target   = kvMap["target_dir"];
+        bool    overwrite = kvMap["overwrite"] == "true";
+        QString err;
+        bool ok = importRecipe(src, target, overwrite, err);
+        reply = ok ? "ok" : ("error: " + err);
+
+    } else if (cmd == "create_folder") {
+        QString path = kvMap["path"];
+        QString err;
+        bool ok = createFolder(path, err);
+        reply = ok ? "ok" : ("error: " + err);
 
     } else {
         reply = "Error: unknown command: " + cmd;

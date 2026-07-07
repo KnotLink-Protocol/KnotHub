@@ -135,6 +135,8 @@ fn main() {
     recipes::recipe_read,
     recipes::recipe_save,
     recipes::recipe_delete,
+    recipes::recipe_import,
+    recipes::recipe_create_folder,
     // 设置
     nodes::get_core_autostart,
     nodes::set_core_autostart,

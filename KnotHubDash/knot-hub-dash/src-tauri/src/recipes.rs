@@ -69,3 +69,22 @@ pub async fn recipe_save(file_path: String, content: String) -> Result<String, S
 pub async fn recipe_delete(file_path: String) -> Result<String, String> {
     crate::nodes::recipe_query(&kv("recipe_delete", &[("file_path", &file_path)])).await
 }
+
+#[tauri::command]
+pub async fn recipe_import(
+    source_path: String,
+    target_dir: String,
+    overwrite: bool,
+) -> Result<String, String> {
+    let ow = if overwrite { "true" } else { "false" };
+    crate::nodes::recipe_query(&kv("import_recipe", &[
+        ("source_path", &source_path),
+        ("target_dir", &target_dir),
+        ("overwrite", ow),
+    ])).await
+}
+
+#[tauri::command]
+pub async fn recipe_create_folder(path: String) -> Result<String, String> {
+    crate::nodes::recipe_query(&kv("create_folder", &[("path", &path)])).await
+}
