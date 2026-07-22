@@ -1,27 +1,34 @@
+// KnotLink SDK - Rust
+// Copyright (c) 2024-2026 KnotLink Contributors
+// SPDX-License-Identifier: MIT
+
 use anyhow::Result;
 use std::sync::Arc;
-use std::sync::Mutex;          // 改用标准库的 Mutex
+use std::sync::Mutex;
 use tokio::sync::{mpsc, oneshot};
-use log::debug;
+use tokio::time::{self, Duration};
+use log::error;
 use super::tcp_client::TcpClient;
 
+const QUERIER_ADDR: &str = "127.0.0.1:6376";
 pub struct OpenSocketQuerier {
-    app_id: String,
-    open_socket_id: String,
     tx: mpsc::UnboundedSender<Vec<u8>>,
     pending_response: Arc<Mutex<Option<oneshot::Sender<Vec<u8>>>>>,
     _task_handle: tokio::task::JoinHandle<()>,
 }
 
 impl OpenSocketQuerier {
-    pub async fn new(app_id: String, open_socket_id: String, server_addr: &str) -> Result<Self> {
-        let (client, tx) = TcpClient::connect(server_addr, 180).await?;
+    pub async fn new(app_id: String, open_socket_id: String) -> Result<Self> {
+        let (client, tx) = TcpClient::connect(QUERIER_ADDR, 180).await?;
+
+        // 注册到总线（必须在 spawn 之前，因为 client 会被 move 进 task）
+        tx.send(format!("{}-{}", app_id, open_socket_id).into_bytes())?;
+
         let pending = Arc::new(Mutex::new(None::<oneshot::Sender<Vec<u8>>>));
         let pending_clone = pending.clone();
 
         let handle = tokio::spawn(async move {
             let on_data = move |data: Vec<u8>| {
-                // 使用标准库的锁（不会 panic）
                 if let Ok(mut guard) = pending_clone.lock() {
                     if let Some(sender) = guard.take() {
                         let _ = sender.send(data);
@@ -29,49 +36,21 @@ impl OpenSocketQuerier {
                 }
             };
             if let Err(e) = client.run(on_data).await {
-                eprintln!("OpenSocketQuerier TCP 错误: {}", e);
+                error!("OpenSocketQuerier TCP error: {}", e);
             }
         });
 
         Ok(OpenSocketQuerier {
-            app_id,
-            open_socket_id,
             tx,
             pending_response: pending,
             _task_handle: handle,
         })
     }
 
-    pub async fn query_l(&self, data: String) -> Result<String> {
-        let key = format!("{}-{}&*&", self.app_id, self.open_socket_id);
-        let mut full = key.into_bytes();
-        full.extend(data.as_bytes());
-        self.tx.send(full)?;
-
-        let (resp_tx, resp_rx) = oneshot::channel();
-        {
-            let mut guard = self.pending_response.lock().unwrap();
-            *guard = Some(resp_tx);
-        }
-        let resp = resp_rx.await.map_err(|_| anyhow::anyhow!("响应通道关闭"))?;
-        Ok(String::from_utf8(resp)?)
-    }
-
-    pub async fn query(&self, data: String) -> Result<()> {
-        let key = format!("{}-{}&*&", self.app_id, self.open_socket_id);
-        let mut full = key.into_bytes();
-        full.extend(data.as_bytes());
-        self.tx.send(full)?;
-        Ok(())
-    }
-
-    /// 使用临时指定的 app_id 和 open_socket_id 发送查询（不改变自身配置）
-    pub async fn query_with_ids(
-        &self,
-        app_id: &str,
-        open_socket_id: &str,
-        data: String,
-    ) -> Result<String> {
+    /// 同步查询，可选超时
+    pub async fn query_l(&self, data: String, app_id: &str, open_socket_id: &str,
+                         timeout: Option<Duration>) -> Result<String> {
+        // timeout=None 时不超时
         let key = format!("{}-{}&*&", app_id, open_socket_id);
         let mut full = key.into_bytes();
         full.extend(data.as_bytes());
@@ -82,12 +61,23 @@ impl OpenSocketQuerier {
             let mut guard = self.pending_response.lock().unwrap();
             *guard = Some(resp_tx);
         }
-        let resp = resp_rx.await.map_err(|_| anyhow::anyhow!("响应通道关闭"))?;
-        Ok(String::from_utf8(resp)?)
+
+        let result = match timeout {
+            Some(d) => time::timeout(d, resp_rx).await.map_err(|_|
+                anyhow::anyhow!("query_l timed out after {:?}", d))?,
+            None => resp_rx.await,
+        };
+
+        result.map_err(|_| anyhow::anyhow!("Response channel closed"))
+            .and_then(|r| Ok(String::from_utf8(r)?))
     }
 
-    pub fn set_config(&mut self, app_id: String, open_socket_id: String) {
-    self.app_id = app_id;
-    self.open_socket_id = open_socket_id;
-}
+    /// 异步查询，不等待响应
+    pub async fn query(&self, data: String, app_id: &str, open_socket_id: &str) -> Result<()> {
+        let key = format!("{}-{}&*&", app_id, open_socket_id);
+        let mut full = key.into_bytes();
+        full.extend(data.as_bytes());
+        self.tx.send(full)?;
+        Ok(())
+    }
 }

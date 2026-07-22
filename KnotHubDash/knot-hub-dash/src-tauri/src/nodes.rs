@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::sync::OnceLock;
 use std::process::Command;
-use serde_json::json;
 use serde::{Serialize, Deserialize};
 use crate::knotlink_lib::{OpenSocketQuerier, KvMapExt};
 use tokio::sync::Mutex;
@@ -16,13 +15,9 @@ const SOCKET_RECIPE:     &str = "0x00000013";
 static QUERIER: OnceLock<Mutex<OpenSocketQuerier>> = OnceLock::new();
 
 pub async fn init_querier() -> Result<(), String> {
-    let querier = OpenSocketQuerier::new(
-        APP_ID.into(),
-        SOCKET_PLUGIN.into(),
-        "127.0.0.1:6376"
-    )
-    .await
-    .map_err(|e| e.to_string())?;
+    let querier = OpenSocketQuerier::new(APP_ID.into(), SOCKET_PLUGIN.into())
+        .await
+        .map_err(|e| e.to_string())?;
     QUERIER.set(Mutex::new(querier))
         .map_err(|_| "Querier already initialized".to_string())?;
     Ok(())
@@ -36,21 +31,21 @@ pub(crate) fn get_querier() -> &'static Mutex<OpenSocketQuerier> {
 
 pub(crate) async fn plugin_query(payload: &HashMap<String, String>) -> Result<String, String> {
     let q = get_querier().lock().await;
-    q.query_with_ids(APP_ID, SOCKET_PLUGIN, KvMapExt::serialize(payload))
+    q.query_l(KvMapExt::serialize(payload), APP_ID, SOCKET_PLUGIN, None)
         .await
         .map_err(|e| e.to_string())
 }
 
 async fn standalone_query(payload: &HashMap<String, String>) -> Result<String, String> {
     let q = get_querier().lock().await;
-    q.query_with_ids(APP_ID, SOCKET_STANDALONE, KvMapExt::serialize(payload))
+    q.query_l(KvMapExt::serialize(payload), APP_ID, SOCKET_STANDALONE, None)
         .await
         .map_err(|e| e.to_string())
 }
 
 pub(crate) async fn recipe_query(payload: &HashMap<String, String>) -> Result<String, String> {
     let q = get_querier().lock().await;
-    q.query_with_ids(APP_ID, SOCKET_RECIPE, KvMapExt::serialize(payload))
+    q.query_l(KvMapExt::serialize(payload), APP_ID, SOCKET_RECIPE, None)
         .await
         .map_err(|e| e.to_string())
 }
@@ -289,7 +284,7 @@ pub async fn call_open_socket(
     args: HashMap<String, String>,
 ) -> Result<String, String> {
     let q = get_querier().lock().await;
-    q.query_with_ids(&app_id, &open_socket_id, KvMapExt::serialize(&args))
+    q.query_l(KvMapExt::serialize(&args), &app_id, &open_socket_id, None)
         .await
         .map_err(|e| e.to_string())
 }
@@ -334,7 +329,7 @@ pub async fn set_node_autostart(node_id: String, auto_start: bool) -> Result<(),
 }
 
 #[tauri::command]
-pub async fn delete_node(plugin_name: String) -> Result<(), String> {
+pub async fn delete_node(_plugin_name: String) -> Result<(), String> {
     // 尚未实现删除 API
     Err("delete not implemented".into())
 }

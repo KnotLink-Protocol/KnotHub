@@ -1,3 +1,9 @@
+/*
+ * KnotLink SDK - C++
+ * Copyright (c) 2024-2026 KnotLink Contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef TCPCLIENT_H
 #define TCPCLIENT_H
 
@@ -8,34 +14,35 @@
 #include <QByteArray>
 
 class TcpClient : public QObject {
-    Q_OBJECT
+	Q_OBJECT
 public:
-    explicit TcpClient(QObject *parent = nullptr);
-    ~TcpClient();
+	static const QByteArray MAGIC;       // 协议魔数：KK + 版本号 2.0
+	static constexpr int MAGIC_LEN = 4;
 
-    void connectToServer(const QString &ip, uint16_t port);
-    void sendData(const QByteArray &data);   // 业务数据（自动加前缀）
+	explicit TcpClient(QObject *parent = nullptr);
+	~TcpClient();
 
-signals:
-    void connected();
-    void disconnected();
-    void receivedData(const QByteArray &data); // 完整消息体（不含前缀）
+	void connectToServer(const QString &ip, uint16_t port);
+	void sendData(const QByteArray &data);  // 自动添加长度前缀
+
+	signals:
+	void connected();
+	void disconnected();
+	void receivedData(const QByteArray &data);  // 完整消息（不含长度前缀）
 
 private slots:
-    void socketConnected();
-    void socketDisconnected();
-    void readData();
-    void handleError(QAbstractSocket::SocketError socketError);
-    void sendHeartbeat();
+	void socketConnected();
+	void socketDisconnected();
+	void readData();
+	void handleError(QAbstractSocket::SocketError socketError);
+	void sendHeartbeat();
 
 private:
-    QTcpSocket *tcpSocket;
-    QTimer *heartBeatTimer;
-    QByteArray readBuffer;    // 累积接收缓冲区
-
-    // 辅助函数
-    void writeWithLengthPrefix(const QByteArray &data);
-    void processBuffer();
+	QTcpSocket *tcpSocket;
+	QTimer *heartBeatTimer;
+	QByteArray buffer;          // 接收缓冲区，用于处理粘包
+	void processBuffer();       // 解析缓冲区中的完整消息
+	void writeWithLengthPrefix(const QByteArray &data); // 写入长度前缀+数据
 };
 
 #endif // TCPCLIENT_H

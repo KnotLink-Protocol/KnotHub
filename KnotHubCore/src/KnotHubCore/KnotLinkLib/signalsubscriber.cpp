@@ -1,4 +1,14 @@
+/*
+ * KnotLink SDK - C++
+ * Copyright (c) 2024-2026 KnotLink Contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "signalsubscriber.h"
+#include <QDebug>
+#include <QLoggingCategory>
+
+Q_LOGGING_CATEGORY(knotlinkSubscriber, "knotlink.subscriber");
 
 SignalSubscriber::SignalSubscriber(QString APPID, QString SignalID, QObject *parent)
     : QObject(parent), appID(APPID), signalID(SignalID)
@@ -11,7 +21,6 @@ void SignalSubscriber::init()
 {
     KLsubscriber = new TcpClient(this);
     KLsubscriber->connectToServer("127.0.0.1",6372);
-    qDebug()<<"OKK";
     connect(KLsubscriber, &TcpClient::receivedData, this, &SignalSubscriber::dataRecv);
     QString s_key = appID + "-" + signalID;
     // 将 s_key 转换为 QByteArray

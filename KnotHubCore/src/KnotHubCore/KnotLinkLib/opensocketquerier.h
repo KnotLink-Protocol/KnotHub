@@ -1,3 +1,9 @@
+/*
+ * KnotLink SDK - C++
+ * Copyright (c) 2024-2026 KnotLink Contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef OPENSOCKETQUERIER_H
 #define OPENSOCKETQUERIER_H
 
@@ -29,7 +35,7 @@ private:
     TcpClient* KLquerier;
     QString appID;
     QString openSocketID;
-    bool lock = 0;
+    bool queryPending = false;  // 标记 query_l 正在等待响应
     void init();
 };
 

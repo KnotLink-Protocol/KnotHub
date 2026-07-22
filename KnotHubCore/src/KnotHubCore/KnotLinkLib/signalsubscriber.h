@@ -1,5 +1,11 @@
-#ifndef SIGNALSUBSRIBER_H
-#define SIGNALSUBSRIBER_H
+/*
+ * KnotLink SDK - C++
+ * Copyright (c) 2024-2026 KnotLink Contributors
+ * SPDX-License-Identifier: MIT
+ */
+
+#ifndef SIGNALSUBSCRIBER_H
+#define SIGNALSUBSCRIBER_H
 
 #include <QObject>
 #include "tcpclient.h"
@@ -25,4 +31,4 @@ private:
     void init();
 };
 
-#endif // SIGNALSUBSRIBER_H
+#endif // SIGNALSUBSCRIBER_H

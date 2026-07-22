@@ -1,48 +1,42 @@
+/*
+ * KnotLink SDK - Qt/C++
+ * Copyright (c) 2024-2026 KnotLink Contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "kludf.h"
 
-KLUDF::KLUDF()
-{
+// ---------- KLKVMap::serialize ----------
+// 格式: key1=value1;key2=value2;key3=value3
 
-}
-
-// 将 KVMap 序列化为键值对字符串
 QString KLKVMap::serialize() const
 {
     QStringList pairs;
-    for (const auto& key : this->keys())
-    {
-        pairs.append(key + "=" + this->value(key));
-    }
-    return pairs.join(";");
+    pairs.reserve(size());
+    for (auto it = cbegin(); it != cend(); ++it)
+        pairs.append(it.key() + '=' + it.value());
+    return pairs.join(';');
 }
 
-// 将键值对字符串反序列化为 KVMap
+// ---------- KLKVMap::deserialize ----------
+
 void KLKVMap::deserialize(const QString& keyValueString)
 {
-    this->clear(); // 清空当前映射
-    QStringList pairs = keyValueString.split(";");
-    for (const auto& pair : pairs)
-    {
-        QStringList keyValue = pair.split("=", QString::SkipEmptyParts);
-        if (keyValue.size() == 2)
-        {
-            this->insert(keyValue[0], keyValue[1]);
-        }
+    clear();
+    if (keyValueString.isEmpty()) return;
+
+    const QStringList pairs = keyValueString.split(';');
+    for (const QString& pair : pairs) {
+        if (pair.isEmpty()) continue;
+        const int eqPos = pair.indexOf('=');
+        if (eqPos >= 0)
+            insert(pair.left(eqPos), pair.mid(eqPos + 1));
     }
 }
 
-// 安全地读取键值对
-QString KLKVMap::get(const QString& key) const
+// ---------- KLKVMap::get ----------
+
+QString KLKVMap::get(const QString& key, const QString& defaultVal) const
 {
-    if (this->contains(key))
-    {
-        return this->value(key);
-    }
-    else
-    {
-        return QString(); // 返回空字符串
-    }
+    return value(key, defaultVal);
 }
-
-
-
