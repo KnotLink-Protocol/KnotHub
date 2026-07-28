@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QProcess>
+#include <windows.h>
 
 class NodeLoader : public QObject
 {
@@ -27,6 +28,10 @@ private slots:
 private:
     QProcess *m_process;
     bool m_isRunning;
+
+    // ── Windows Job Object（防止孤儿进程） ──
+    static HANDLE s_jobHandle;
+    static void ensureJobObject();
 };
 
 #endif // NODELOADER_H
