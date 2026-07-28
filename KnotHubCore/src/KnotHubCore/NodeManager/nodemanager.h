@@ -78,8 +78,9 @@ private:
     bool savePluginManifest(const QString &pluginName);
     bool savePluginManifest(const PluginInfo &info);
 
-    // 安装插件（从 zip 解压到 Plugins/）
+    // 安装/删除插件
     bool installPlugin(const QString &zipPath, QString &error);
+    bool deletePlugin(const QString &pluginName, QString &error);
     static void copyDirRecursive(const QString &src, const QString &dst);
 };
 

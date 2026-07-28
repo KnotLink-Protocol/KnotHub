@@ -329,9 +329,11 @@ pub async fn set_node_autostart(node_id: String, auto_start: bool) -> Result<(),
 }
 
 #[tauri::command]
-pub async fn delete_node(_plugin_name: String) -> Result<(), String> {
-    // 尚未实现删除 API
-    Err("delete not implemented".into())
+pub async fn delete_node(plugin_name: String) -> Result<(), String> {
+    let resp = plugin_query(&kv("delete_plugin", &[
+        ("plugin_name", &plugin_name)
+    ])).await?;
+    if resp == "ok" { Ok(()) } else { Err(resp) }
 }
 
 #[tauri::command]

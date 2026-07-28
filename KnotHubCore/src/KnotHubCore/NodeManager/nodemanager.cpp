@@ -330,6 +330,40 @@ bool PluginManager::savePluginManifest(const PluginInfo &info)
 }
 
 // ═══════════════════════════════════════════════════════════════
+// 删除插件 — 停止进程 + 删除文件夹 + 移除记录
+// ═══════════════════════════════════════════════════════════════
+
+bool PluginManager::deletePlugin(const QString &pluginName, QString &error)
+{
+    if (!m_pluginInfos.contains(pluginName)) {
+        error = QString("Plugin not found: %1").arg(pluginName);
+        return false;
+    }
+
+    // 1. 停止进程
+    if (isPluginRunning(pluginName))
+        stopPlugin(pluginName);
+
+    // 2. 移除 loader
+    removeLoader(pluginName);
+
+    // 3. 删除文件夹
+    QString folderPath = m_pluginInfos[pluginName].folderPath;
+    QDir dir(folderPath);
+    if (dir.exists() && !dir.removeRecursively()) {
+        error = QString("Failed to delete folder: %1").arg(folderPath);
+        return false;
+    }
+
+    // 4. 从列表移除
+    m_pluginInfos.remove(pluginName);
+    emit pluginListChanged(m_pluginInfos.keys());
+
+    qDebug() << "[Plugin] Deleted:" << pluginName << "from" << folderPath;
+    return true;
+}
+
+// ═══════════════════════════════════════════════════════════════
 // 安装插件 — 解压 zip 到 Plugins/ 目录
 // ═══════════════════════════════════════════════════════════════
 
@@ -523,6 +557,12 @@ void PluginManager::onKnotLinkRecieveData(const QString &data, QString questionI
         QString zipPath = kvMap["zip_path"];
         QString err;
         bool ok = installPlugin(zipPath, err);
+        reply = ok ? "ok" : ("error: " + err);
+
+    } else if (cmd == "delete_plugin") {
+        QString pluginName = kvMap["plugin_name"];
+        QString err;
+        bool ok = deletePlugin(pluginName, err);
         reply = ok ? "ok" : ("error: " + err);
 
     } else if (cmd == "refresh") {
