@@ -2,6 +2,7 @@
 #define DAEMON_H
 
 #include <QObject>
+#include <QTimer>
 #include "NodeManager/nodemanager.h"
 #include "NodeManager/standalonemanager.h"
 #include "RecipeManager/recipemanager.h"
@@ -30,6 +31,7 @@ private:
     PluginManager     *m_pluginManager;
     StandaloneManager *m_standaloneManager;
     RecipeManager     *m_recipeManager;
+    QTimer            *m_refreshTimer;
     bool m_running;
 };
 

@@ -23,6 +23,7 @@ public:
 
     // 目录树
     QByteArray scanTree() const;
+    void refreshTree();
 
     // 进程管理
     bool runRecipe(const QString &filePath);
@@ -53,6 +54,7 @@ private:
 
     OpenSocketResponser *m_responder;
     QString m_recipesRoot;
+    QByteArray m_cachedTree;
     QMap<QString, NodeLoader *> m_loaders;
 };
 

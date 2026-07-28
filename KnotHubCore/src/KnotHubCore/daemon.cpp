@@ -7,6 +7,7 @@ Daemon::Daemon(QObject *parent)
     , m_pluginManager(nullptr)
     , m_standaloneManager(nullptr)
     , m_recipeManager(nullptr)
+    , m_refreshTimer(nullptr)
     , m_running(false)
 {
 }
@@ -68,9 +69,19 @@ bool Daemon::start()
         emit logMessage(QString("Recipe stopped: %1").arg(path));
     });
 
+    // ── 4. 定时刷新 ─────────────────────────────────────
+    m_refreshTimer = new QTimer(this);
+    m_refreshTimer->setInterval(15000);  // 每 15 秒刷新一次
+    connect(m_refreshTimer, &QTimer::timeout, this, [this]() {
+        m_pluginManager->refreshPluginList();
+        m_standaloneManager->scan();
+        m_recipeManager->refreshTree();
+    });
+    m_refreshTimer->start();
+
     m_running = true;
     emit started();
-    emit logMessage("KnotHub started (plugins + standalone + recipes)");
+    emit logMessage("KnotHub started (plugins + standalone + recipes + auto-refresh)");
     return true;
 }
 
@@ -78,6 +89,9 @@ void Daemon::stop()
 {
     if (!m_running) return;
 
+    if (m_refreshTimer) {
+        m_refreshTimer->stop();
+    }
     m_pluginManager->stopAllPlugins();
     m_recipeManager->stopAll();
     m_running = false;

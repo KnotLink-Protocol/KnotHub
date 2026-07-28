@@ -17,6 +17,7 @@ RecipeManager::RecipeManager(QObject *parent)
     m_responder = new OpenSocketResponser("0x00000002", "0x00000013", this);
     connect(m_responder, &OpenSocketResponser::receivedData,
             this, &RecipeManager::onKnotLinkData);
+    refreshTree();
 }
 
 RecipeManager::~RecipeManager()
@@ -78,6 +79,13 @@ QJsonArray RecipeManager::scanChildren(const QDir &dir) const
     }
 
     return children;
+}
+
+// ── 缓存刷新 ──────────────────────────────────────────────
+
+void RecipeManager::refreshTree()
+{
+    m_cachedTree = scanTree();
 }
 
 // ── 进程管理 ────────────────────────────────────────────────
@@ -286,18 +294,28 @@ void RecipeManager::onKnotLinkData(const QString &data, const QString &questionI
     QString reply;
 
     if (cmd == "get_recipe_tree") {
-        reply = QString::fromUtf8(scanTree());
+        reply = QString::fromUtf8(m_cachedTree);
 
     } else if (cmd == "get_recipes_root") {
         reply = m_recipesRoot;
 
     } else if (cmd == "recipe_run") {
         QString path = kvMap["file_path"];
-        reply = runRecipe(path) ? "ok" : "error: failed to run recipe";
+        if (runRecipe(path)) {
+            refreshTree();
+            reply = "ok";
+        } else {
+            reply = "error: failed to run recipe";
+        }
 
     } else if (cmd == "recipe_stop") {
         QString path = kvMap["file_path"];
-        reply = stopRecipe(path) ? "ok" : "error: failed to stop recipe";
+        if (stopRecipe(path)) {
+            refreshTree();
+            reply = "ok";
+        } else {
+            reply = "error: failed to stop recipe";
+        }
 
     } else if (cmd == "recipe_status") {
         QString path = kvMap["file_path"];
@@ -311,11 +329,21 @@ void RecipeManager::onKnotLinkData(const QString &data, const QString &questionI
     } else if (cmd == "recipe_save") {
         QString path = kvMap["file_path"];
         QString content = kvMap["content"];
-        reply = saveRecipe(path, content) ? "ok" : "error: cannot save file";
+        if (saveRecipe(path, content)) {
+            refreshTree();
+            reply = "ok";
+        } else {
+            reply = "error: cannot save file";
+        }
 
     } else if (cmd == "recipe_delete") {
         QString path = kvMap["file_path"];
-        reply = deleteRecipe(path) ? "ok" : "error: cannot delete";
+        if (deleteRecipe(path)) {
+            refreshTree();
+            reply = "ok";
+        } else {
+            reply = "error: cannot delete";
+        }
 
     } else if (cmd == "import_recipe") {
         QString src      = kvMap["source_path"];
@@ -323,12 +351,14 @@ void RecipeManager::onKnotLinkData(const QString &data, const QString &questionI
         bool    overwrite = kvMap["overwrite"] == "true";
         QString err;
         bool ok = importRecipe(src, target, overwrite, err);
+        if (ok) refreshTree();
         reply = ok ? "ok" : ("error: " + err);
 
     } else if (cmd == "create_folder") {
         QString path = kvMap["path"];
         QString err;
         bool ok = createFolder(path, err);
+        if (ok) refreshTree();
         reply = ok ? "ok" : ("error: " + err);
 
     } else {
