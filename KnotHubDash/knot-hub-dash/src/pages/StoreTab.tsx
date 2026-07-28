@@ -254,31 +254,32 @@ export default function StoreTab({ installedAppIds, onInstalledChange }: Props) 
         <p style={{ color: '#999', textAlign: 'center', padding: 32 }}>没有匹配的插件</p>
       )}
 
-      {/* 卡片网格 */}
+      {/* 横行列表 */}
       {!loading && !error && filtered.length > 0 && (
-        <div className={styles.cardGrid}>
+        <div className={styles.rowList}>
           {filtered.map(p => (
-            <div key={p.id} className={styles.card} onClick={() => handleDetail(p)}>
-              <div className={styles.cardLogo}>
+            <div key={p.id} className={styles.row} onClick={() => handleDetail(p)}>
+              {/* Logo */}
+              <div className={styles.rowLogo}>
                 {p.logo ? (
                   <img src={`${BASE_URL}/${p.logo}`} alt={p.name} />
                 ) : (
                   <span className={styles.placeholderIcon}>{p.typeIcon}</span>
                 )}
               </div>
-              <div className={styles.cardBody}>
-                <div className={styles.cardName}>{p.name}</div>
-                <div className={styles.cardAuthor}>{p.author} · {p.version}</div>
-                <div className={styles.cardDesc}>{p.desc}</div>
-                <div className={styles.cardMeta}>
-                  <span className="status-badge">{p.typeLabel}</span>
-                  {p.socketsCount > 0 && <span className="status-badge">📡 {p.socketsCount} 接口</span>}
-                  {p.signalsCount > 0 && <span className="status-badge">📢 {p.signalsCount} 信号</span>}
-                </div>
+              {/* 信息 */}
+              <div className={styles.rowInfo}>
+                <span className={styles.rowName}>{p.name}</span>
+                <span className={styles.rowAuthor}>{p.author} · {p.version}</span>
+                {p.desc && <span className={styles.rowDesc}>{p.desc}</span>}
               </div>
-              <div className={styles.cardFooter}>
-                {renderInstallBtn(p)}
+              {/* 标签 */}
+              <div className={styles.rowMeta}>
+                {p.socketsCount > 0 && <span className="status-badge">📡 {p.socketsCount}</span>}
+                {p.signalsCount > 0 && <span className="status-badge">📢 {p.signalsCount}</span>}
               </div>
+              {/* 安装 */}
+              {renderInstallBtn(p)}
             </div>
           ))}
         </div>
