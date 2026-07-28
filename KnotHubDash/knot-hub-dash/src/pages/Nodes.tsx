@@ -7,6 +7,7 @@ import startIcon from '../assets/start.svg';
 import stopIcon from '../assets/stop.svg';
 import settingIcon from '../assets/setting.svg';
 import homeIcon from '../assets/home.svg';
+import StoreTab from './StoreTab';
 
 interface NodeSummary {
   id: string;
@@ -22,7 +23,7 @@ interface NodeSummary {
   description?: string;
 }
 
-type TabKey = 'plugin' | 'standalone';
+type TabKey = 'plugin' | 'standalone' | 'store';
 
 export default function Nodes() {
   const [tab, setTab] = useState<TabKey>('plugin');
@@ -31,6 +32,7 @@ export default function Nodes() {
   const [loading, setLoading] = useState(true);
   const [dragOver, setDragOver] = useState(false);
   const [installMsg, setInstallMsg] = useState<string | null>(null);
+  const [installedVersions, setInstalledVersions] = useState<Map<string, string>>(new Map());
 
   // ── 拖拽安装插件 ──────────────────────────────────────
   const handleDrop = useCallback(async (paths: string[]) => {
@@ -77,6 +79,11 @@ export default function Nodes() {
       ]);
       setPlugins(p);
       setStandalones(s);
+      // 构建 app_id → 版本 映射（供 Store 判断已安装）
+      const map = new Map<string, string>();
+      for (const n of p) map.set(n.app_id, n.version);
+      for (const n of s) map.set(n.app_id, n.version);
+      setInstalledVersions(map);
     } catch (err) {
       console.error('获取节点列表失败:', err);
     } finally {
@@ -184,7 +191,7 @@ export default function Nodes() {
 
       {/* Tab 切换 */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-        {(['plugin', 'standalone'] as TabKey[]).map(k => (
+        {(['plugin', 'standalone', 'store'] as TabKey[]).map(k => (
           <button
             key={k}
             className="btn"
@@ -194,10 +201,12 @@ export default function Nodes() {
             }}
             onClick={() => setTab(k)}
           >
-            {k === 'plugin' ? '🔌 插入式节点' : '📡 独立式节点'}
-            <span style={{ marginLeft: 8, opacity: 0.7, fontSize: 12 }}>
-              {k === 'plugin' ? plugins.length : standalones.length}
-            </span>
+            {k === 'plugin' ? '🔌 插入式节点' : k === 'standalone' ? '📡 独立式节点' : '🏪 插件市场'}
+            {k !== 'store' && (
+              <span style={{ marginLeft: 8, opacity: 0.7, fontSize: 12 }}>
+                {k === 'plugin' ? plugins.length : standalones.length}
+              </span>
+            )}
           </button>
         ))}
         <button className="btn btn-sm" onClick={handleRefresh} style={{ marginLeft: 'auto' }}>
@@ -221,7 +230,15 @@ export default function Nodes() {
         </div>
       )}
 
-      {loading ? (
+      {/* 插件市场 */}
+      {tab === 'store' && (
+        <StoreTab
+          installedAppIds={installedVersions}
+          onInstalledChange={fetchAll}
+        />
+      )}
+
+      {tab !== 'store' && (loading ? (
         <div className="loading">加载中...</div>
       ) : (
         <div className="section" style={{ position: 'relative' }}>
@@ -338,7 +355,7 @@ export default function Nodes() {
             ))}
           </div>
         </div>
-      )}
+      ))}
     </>
   );
 }

@@ -4,6 +4,7 @@
 pub mod knotlink_lib;
 mod nodes;
 mod recipes;
+mod store;
 
 // 重新导出常用类型
 pub use knotlink_lib::{OpenSocketQuerier, OpenSocketResponser, SignalSender};
@@ -147,6 +148,10 @@ pub fn run() {
             nodes::get_knotlink_addr,
             nodes::open_folder,
             nodes::open_app_dir,
+            // 插件市场
+            store::fetch_store_index,
+            store::download_and_install,
+            store::http_get_text,
             // 独立命令
             query_node,
             check_service_port,
