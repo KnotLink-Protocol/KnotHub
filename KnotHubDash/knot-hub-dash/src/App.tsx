@@ -17,6 +17,7 @@ import NodePreview from './components/preview/NodePreview';
 import LinkPreview from './components/preview/LinkPreview';
 import PortPreview from './components/preview/PortPreview';
 import RecipePreview from './components/preview/RecipePreview';
+import StorePreview from './components/preview/StorePreview';
 
 
 function App() {
@@ -100,7 +101,13 @@ function PreviewBar() {
         {previewData?.type === 'link' && <LinkPreview linkId={previewData.id} />}
         {previewData?.type === 'port' && <PortPreview port={previewData.id} />}
         {previewData?.type === 'recipe' && <RecipePreview data={previewData.details} />}
-        {/* 后续可以添加 recipe 等 */}
+        {previewData?.type === 'store' && (
+          <StorePreview
+            plugin={previewData.details?.plugin}
+            installed={previewData.details?.installed ?? false}
+            onInstalled={() => window.dispatchEvent(new CustomEvent('plugin-installed'))}
+          />
+        )}
       </div>
     </div>
   );
