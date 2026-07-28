@@ -14,7 +14,8 @@
       {
         "title": "knot-hub-dash",
         "width": 1000,
-        "height": 600
+        "height": 600,
+        "dragDropEnabled": true
       }
     ],
     "security": {

@@ -369,9 +369,9 @@ bool PluginManager::installPlugin(const QString &zipPath, QString &error)
             QJsonDocument doc = QJsonDocument::fromJson(f.readAll());
             f.close();
             if (doc.isObject()) {
-                pluginName = doc.object().value("plugin_name").toString();
+                pluginName = doc.object().value("app_id").toString();
                 if (pluginName.isEmpty())
-                    pluginName = doc.object().value("app_id").toString();
+                    pluginName = doc.object().value("plugin_name").toString();
             }
         }
     }
