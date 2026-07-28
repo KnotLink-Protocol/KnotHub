@@ -38,8 +38,8 @@ const StorePreview: React.FC<Props> = ({ plugin, installed, onInstalled }) => {
     setFuncList(null);
     setLoading(true);
 
-    const readmeUrl = `${BASE_URL}/${plugin.dir}/README.md`;
-    const funcUrl   = `${BASE_URL}/${plugin.dir}/FuncList.json`;
+    const readmeUrl = `${BASE_URL}/nodes/${plugin.dir}/README.md`;
+    const funcUrl   = `${BASE_URL}/nodes/${plugin.dir}/FuncList.json`;
 
     Promise.all([
       invoke<string>('http_get_text', { url: readmeUrl }).catch(() => '# 暂无说明文档'),
