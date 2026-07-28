@@ -90,12 +90,9 @@ export default function StoreTab({ installedAppIds, onInstalledChange }: Props) 
 
   // ── 安装按钮状态 ──────────────────────────────────────
 
-  const getInstallState = (p: StorePlugin): 'install' | 'installing' | 'installed' | 'update' => {
+  const getInstallState = (p: StorePlugin): 'install' | 'installing' | 'installed' => {
     if (installingId === p.id) return 'installing';
-    const localVer = installedAppIds.get(p.appId);
-    if (!localVer) return 'install';
-    if (p.version && localVer !== p.version) return 'update';
-    return 'installed';
+    return installedAppIds.has(p.appId) ? 'installed' : 'install';
   };
 
   // ── 安装 ──────────────────────────────────────────────
@@ -165,7 +162,6 @@ export default function StoreTab({ installedAppIds, onInstalledChange }: Props) 
       install: '⬇️ 安装',
       installing: '⏳ 安装中...',
       installed: '✅ 已安装',
-      update: '⬆️ 更新',
     };
     const disabled = state === 'installing' || state === 'installed';
     return (
