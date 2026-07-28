@@ -90,9 +90,24 @@ export default function StoreTab({ installedAppIds, onInstalledChange }: Props) 
 
   // ── 安装按钮状态 ──────────────────────────────────────
 
-  const getInstallState = (p: StorePlugin): 'install' | 'installing' | 'installed' => {
+  /** 去掉 v 前缀，比较三段数字。只有商店版本严格更高时才需更新 */
+  const isNewer = (storeVer: string, localVer: string): boolean => {
+    const toNums = (v: string) => v.replace(/^v/i, '').split('.').map(s => parseInt(s, 10) || 0);
+    const s = toNums(storeVer);
+    const l = toNums(localVer);
+    for (let i = 0; i < Math.max(s.length, l.length); i++) {
+      if ((s[i] || 0) > (l[i] || 0)) return true;
+      if ((s[i] || 0) < (l[i] || 0)) return false;
+    }
+    return false; // 相等
+  };
+
+  const getInstallState = (p: StorePlugin): 'install' | 'installing' | 'installed' | 'update' => {
     if (installingId === p.id) return 'installing';
-    return installedAppIds.has(p.appId) ? 'installed' : 'install';
+    const localVer = installedAppIds.get(p.appId);
+    if (!localVer) return 'install';
+    if (p.version && isNewer(p.version, localVer)) return 'update';
+    return 'installed';
   };
 
   // ── 安装 ──────────────────────────────────────────────
@@ -162,6 +177,7 @@ export default function StoreTab({ installedAppIds, onInstalledChange }: Props) 
       install: '⬇️ 安装',
       installing: '⏳ 安装中...',
       installed: '✅ 已安装',
+      update: '⬆️ 更新',
     };
     const disabled = state === 'installing' || state === 'installed';
     return (
