@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { marked } from 'marked';
 
 const BASE_URL = 'https://knotlink.cn';
 
@@ -67,23 +68,6 @@ const StorePreview: React.FC<Props> = ({ plugin, installed, onInstalled }) => {
     } finally {
       setInstalling(false);
     }
-  };
-
-  const renderMarkdown = (md: string) => {
-    const lines = md.split('\n');
-    return lines.map((line, i) => {
-      if (line.startsWith('### ')) return <h4 key={i}>{line.slice(4)}</h4>;
-      if (line.startsWith('## ')) return <h3 key={i}>{line.slice(3)}</h3>;
-      if (line.startsWith('# ')) return <h2 key={i}>{line.slice(2)}</h2>;
-      if (line.startsWith('- **')) {
-        const match = line.match(/- \*\*(.+?)\*\*(.*)/);
-        if (match) return <p key={i}><strong>{match[1]}</strong>{match[2]}</p>;
-      }
-      if (line.startsWith('- ')) return <p key={i} style={{ paddingLeft: 16 }}>• {line.slice(2)}</p>;
-      if (line.startsWith('```')) return null;
-      if (line.trim() === '') return <br key={i} />;
-      return <p key={i}>{line}</p>;
-    });
   };
 
   return (
@@ -179,9 +163,10 @@ const StorePreview: React.FC<Props> = ({ plugin, installed, onInstalled }) => {
           {readme && readme !== '# 暂无说明文档' && (
             <div>
               <h4 style={{ fontSize: 14, margin: '12px 0 8px' }}>📖 说明</h4>
-              <div style={{ fontSize: 13, lineHeight: 1.6 }}>
-                {renderMarkdown(readme)}
-              </div>
+              <div
+                className="markdown-body"
+                dangerouslySetInnerHTML={{ __html: marked.parse(readme) }}
+              />
             </div>
           )}
         </>
