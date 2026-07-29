@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import { marked } from 'marked';
 
 const BASE_URL = 'https://knotlink.cn';
@@ -93,30 +94,49 @@ const StorePreview: React.FC<Props> = ({ plugin, installed, onInstalled }) => {
         <div className="preview-field" style={{ marginBottom: 12 }}>{plugin.desc}</div>
       )}
 
-      {/* 安装按钮 */}
+      {/* 安装 / 下载按钮 */}
       <div style={{ marginBottom: 16 }}>
-        {installed ? (
-          <button disabled style={{
-            padding: '6px 20px', border: 'none', borderRadius: 6,
-            background: '#d1fae5', color: '#065f46', fontSize: 13, fontWeight: 500,
-          }}>
-            ✅ 已安装
-          </button>
-        ) : installing ? (
-          <button disabled style={{
-            padding: '6px 20px', border: 'none', borderRadius: 6,
-            background: '#e2e8f0', color: '#94a3b8', fontSize: 13,
-          }}>
-            ⏳ 安装中...
-          </button>
+        {plugin.type === 'standalone' ? (
+          installed ? (
+            <button disabled style={{
+              padding: '6px 20px', border: 'none', borderRadius: 6,
+              background: '#d1fae5', color: '#065f46', fontSize: 13, fontWeight: 500,
+            }}>
+              ✅ 已注册
+            </button>
+          ) : (
+            <button onClick={() => plugin.downloadUrl && openUrl(plugin.downloadUrl)} style={{
+              padding: '6px 20px', border: 'none', borderRadius: 6,
+              background: '#667eea', color: '#fff', fontSize: 13, fontWeight: 500,
+              cursor: 'pointer',
+            }}>
+              🌐 下载
+            </button>
+          )
         ) : (
-          <button onClick={handleInstall} style={{
-            padding: '6px 20px', border: 'none', borderRadius: 6,
-            background: '#667eea', color: '#fff', fontSize: 13, fontWeight: 500,
-            cursor: 'pointer',
-          }}>
-            ⬇️ 安装
-          </button>
+          installed ? (
+            <button disabled style={{
+              padding: '6px 20px', border: 'none', borderRadius: 6,
+              background: '#d1fae5', color: '#065f46', fontSize: 13, fontWeight: 500,
+            }}>
+              ✅ 已安装
+            </button>
+          ) : installing ? (
+            <button disabled style={{
+              padding: '6px 20px', border: 'none', borderRadius: 6,
+              background: '#e2e8f0', color: '#94a3b8', fontSize: 13,
+            }}>
+              ⏳ 安装中...
+            </button>
+          ) : (
+            <button onClick={handleInstall} style={{
+              padding: '6px 20px', border: 'none', borderRadius: 6,
+              background: '#667eea', color: '#fff', fontSize: 13, fontWeight: 500,
+              cursor: 'pointer',
+            }}>
+              ⬇️ 安装
+            </button>
+          )
         )}
       </div>
 

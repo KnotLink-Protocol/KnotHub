@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import styles from './StoreTab.module.css';
 
 // ── 数据结构（与 nodes-index.json 对齐）──────────────────
@@ -159,6 +160,24 @@ export default function StoreTab({ installedAppIds, onInstalledChange }: Props) 
   // ── 安装按钮渲染 ──────────────────────────────────────
 
   const renderInstallBtn = (p: StorePlugin) => {
+    // 独立式节点：打开浏览器到下载页
+    if (p.type === 'standalone') {
+      const isRegistered = installedAppIds.has(p.appId);
+      return (
+        <button
+          className={`${styles.installBtn} ${isRegistered ? styles.installed : styles.install}`}
+          disabled={isRegistered}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (p.downloadUrl) openUrl(p.downloadUrl);
+          }}
+        >
+          {isRegistered ? '✅ 已注册' : '🌐 下载'}
+        </button>
+      );
+    }
+
+    // 插入式节点：安装/已安装/更新
     const state = getInstallState(p);
     const btnClass = `${styles.installBtn} ${styles[state]}`;
     const labels: Record<string, string> = {
