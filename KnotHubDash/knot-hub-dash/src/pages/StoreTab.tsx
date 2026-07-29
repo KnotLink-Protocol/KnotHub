@@ -25,12 +25,6 @@ interface StorePlugin {
   signalsCount: number;
 }
 
-interface LocalPlugin {
-  app_id: string;
-  version?: string;
-  name?: string;
-}
-
 // ── 网站地址 ─────────────────────────────────────────────
 
 const BASE_URL = 'https://knotlink.cn';
