@@ -2,7 +2,7 @@
 ; User-level install, no admin required.
 
 !define PRODUCT_NAME        "KnotHub"
-!define PRODUCT_VERSION      "1.0.0.0"
+!define PRODUCT_VERSION      "0.2.0.0"
 !define PRODUCT_PUBLISHER    "KnotLink"
 !define CORE_EXE             "KnotHubCore.exe"
 !define DASH_EXE             "knot-hub-dash.exe"
