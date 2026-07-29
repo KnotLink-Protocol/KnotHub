@@ -1,5 +1,7 @@
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import { invoke } from '@tauri-apps/api/core';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import { ThemeProvider } from './context/ThemeContext';
 import ThemeToggle from './components/ThemeToggle';
 import './App.css';
@@ -20,10 +22,41 @@ import RecipePreview from './components/preview/RecipePreview';
 import StorePreview from './components/preview/StorePreview';
 
 
+interface UpdateInfo {
+  current: string;
+  latest: string;
+  has_update: boolean;
+  published_at: string | null;
+  html_url: string | null;
+  body: string | null;
+}
+
 function App() {
+  const [update, setUpdate] = useState<UpdateInfo | null>(null);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+
+  useEffect(() => {
+    invoke<UpdateInfo>('check_latest_version')
+      .then(u => setUpdate(u))
+      .catch(() => {}); // 静默失败
+  }, []);
+
   return (
     <ThemeProvider>
       <BrowserRouter>
+        {update?.has_update && !bannerDismissed && (
+          <div className="update-banner">
+            <span>🆕 KnotHub {update.latest} 可用</span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="update-banner-btn"
+                onClick={() => update.html_url && openUrl(update.html_url)}>
+                查看
+              </button>
+              <button className="update-banner-btn"
+                onClick={() => setBannerDismissed(true)}>✕</button>
+            </div>
+          </div>
+        )}
         <div className="app">
           <NavBar />
           <MainContent />

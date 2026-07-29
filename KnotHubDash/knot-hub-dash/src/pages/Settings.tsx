@@ -1,9 +1,21 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { openUrl } from '@tauri-apps/plugin-opener';
+
+interface UpdateInfo {
+  current: string;
+  latest: string;
+  has_update: boolean;
+  published_at: string | null;
+  html_url: string | null;
+  body: string | null;
+}
 
 export default function Settings() {
   const [autostart, setAutostart] = useState(false);
   const [checking, setChecking] = useState(true);
+  const [update, setUpdate] = useState<UpdateInfo | null>(null);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
 
   const knotlinkPorts = [
     { port: '6378', service: 'OpenSocket', label: '回答者注册' },
@@ -12,6 +24,18 @@ export default function Settings() {
     { port: '6370', service: 'Signal',     label: '信号发送' },
   ];
   const [portStatus, setPortStatus] = useState<Record<string, boolean>>({});
+
+  const checkUpdate = async () => {
+    setCheckingUpdate(true);
+    try {
+      const u = await invoke<UpdateInfo>('check_latest_version');
+      setUpdate(u);
+    } catch {
+      setUpdate(prev => prev || null);
+    } finally {
+      setCheckingUpdate(false);
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -34,6 +58,7 @@ export default function Settings() {
         setChecking(false);
       }
     })();
+    checkUpdate();
   }, []);
 
   const toggleAutostart = async () => {
@@ -117,8 +142,40 @@ export default function Settings() {
           <div className="section-title">关于</div>
         </div>
         <div style={{ color: '#6c757d', fontSize: 13, lineHeight: 2 }}>
-          <div>KnotHub v1.0.0</div>
-          <div>KnotLink 协议服务中枢 &amp; 管理面板</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span>KnotHub v{update?.current || '...'}</span>
+            <button className="btn btn-sm"
+              onClick={checkUpdate} disabled={checkingUpdate}
+              style={{ border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer' }}>
+              {checkingUpdate ? '...' : '🔄 检查更新'}
+            </button>
+          </div>
+
+          {update && (
+            update.has_update ? (
+              <div style={{
+                marginTop: 8, padding: '8px 12px',
+                background: '#fef2c7', borderRadius: 6, color: '#92400e',
+                display: 'flex', alignItems: 'center', gap: 8,
+              }}>
+                <span>🆕 {update.latest} 可用</span>
+                {update.published_at && (
+                  <span style={{ fontSize: 11, opacity: 0.7 }}>
+                    {new Date(update.published_at).toLocaleDateString()}
+                  </span>
+                )}
+                <button className="btn btn-sm"
+                  onClick={() => update.html_url && openUrl(update.html_url)}
+                  style={{ marginLeft: 'auto', border: '1px solid #92400e', borderRadius: 6, cursor: 'pointer', background: 'none' }}>
+                  📦 下载
+                </button>
+              </div>
+            ) : (
+              <div style={{ marginTop: 4, color: '#065f46' }}>✅ 已是最新版本</div>
+            )
+          )}
+
+          <div style={{ marginTop: 8 }}>KnotLink 协议服务中枢 &amp; 管理面板</div>
           <div style={{ marginTop: 4 }}>
             <a href="https://github.com/KnotLink-Protocol/KnotHub" target="_blank" rel="noreferrer"
                style={{ color: '#667eea' }}>

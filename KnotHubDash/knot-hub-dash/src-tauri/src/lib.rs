@@ -152,6 +152,7 @@ pub fn run() {
             store::fetch_store_index,
             store::download_and_install,
             store::http_get_text,
+            store::check_latest_version,
             // 独立命令
             query_node,
             check_service_port,

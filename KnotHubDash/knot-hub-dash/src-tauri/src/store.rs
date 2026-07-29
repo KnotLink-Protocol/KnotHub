@@ -221,3 +221,90 @@ pub async fn http_get_text(url: String) -> Result<String, String> {
         .await
         .map_err(|e| format!("读取响应失败: {}", e))
 }
+
+// ═══════════════════════════════════════════════════════════════
+// 版本检查 — GitHub release 更新提示
+// ═══════════════════════════════════════════════════════════════
+
+#[derive(Debug, Clone, Serialize)]
+pub struct UpdateInfo {
+    pub current: String,
+    pub latest: String,
+    pub has_update: bool,
+    pub published_at: Option<String>,
+    pub html_url: Option<String>,
+    pub body: Option<String>,
+}
+
+#[tauri::command]
+pub async fn check_latest_version() -> Result<UpdateInfo, String> {
+    let current = env!("CARGO_PKG_VERSION").to_string();
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .build()
+        .map_err(|e| format!("创建 HTTP 客户端失败: {}", e))?;
+
+    let api_url = "https://api.github.com/repos/KnotLink-Protocol/KnotHub/releases/latest";
+
+    let resp = client
+        .get(api_url)
+        .header("User-Agent", "KnotHub-Dash")
+        .header("Accept", "application/vnd.github+json")
+        .send()
+        .await
+        .map_err(|e| format!("网络请求失败: {}", e))?;
+
+    if !resp.status().is_success() {
+        // 网络不通或 API 异常 → 不提示，返回相同版本
+        return Ok(UpdateInfo {
+            current,
+            latest: String::new(),
+            has_update: false,
+            published_at: None,
+            html_url: None,
+            body: None,
+        });
+    }
+
+    let json: serde_json::Value = resp.json().await
+        .map_err(|_| "解析 JSON 失败".to_string())?;
+
+    let tag = json["tag_name"].as_str().unwrap_or("").to_string();
+    let html = json["html_url"].as_str().map(String::from);
+    let published = json["published_at"].as_str().map(String::from);
+    let body = json["body"].as_str().map(String::from);
+
+    // 版本比较
+    let latest = tag.trim_start_matches('v');
+    let has_update = is_version_newer(latest, &current);
+
+    Ok(UpdateInfo {
+        current,
+        latest: tag,
+        has_update,
+        published_at: published,
+        html_url: html,
+        body,
+    })
+}
+
+/// 去 v 前缀后三段数字比较，latest > current 返回 true
+fn is_version_newer(latest: &str, current: &str) -> bool {
+    let to_nums = |v: &str| -> Vec<u32> {
+        v.replace(|c: char| !c.is_ascii_digit() && c != '.', "")
+            .split('.')
+            .filter_map(|s| s.parse().ok())
+            .collect()
+    };
+    let l = to_nums(latest);
+    let c = to_nums(current);
+    if l.is_empty() || c.is_empty() { return false; }
+    for i in 0..l.len().max(c.len()) {
+        let a = l.get(i).copied().unwrap_or(0);
+        let b = c.get(i).copied().unwrap_or(0);
+        if a > b { return true; }
+        if a < b { return false; }
+    }
+    false
+}
