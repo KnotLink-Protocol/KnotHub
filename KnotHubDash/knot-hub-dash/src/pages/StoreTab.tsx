@@ -53,7 +53,7 @@ export default function StoreTab({ installedAppIds, onInstalledChange }: Props) 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [installingId, setInstallingId] = useState<string | null>(null);
-  const [typeFilter, setTypeFilter] = useState<'all' | 'plugin' | 'standalone'>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'plugin' | 'standalone'>('plugin');
   const [searchQuery, setSearchQuery] = useState('');
 
   // ── 拉取商店索引 ──────────────────────────────────────
