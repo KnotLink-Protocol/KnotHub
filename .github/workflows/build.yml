@@ -80,3 +80,14 @@ jobs:
         with:
           name: KnotHub-${{ github.ref_name }}-Setup
           path: scripts/bin/KnotHub-*-Setup.exe
+
+      # ── 创建 Release 草稿 ────────────────────────────────────
+      - name: Create Release draft
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: scripts/bin/KnotHub-*-Setup.exe
+          body_path: release-notes/RELEASE_NOTES_${{ github.ref_name }}.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
