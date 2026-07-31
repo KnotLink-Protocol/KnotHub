@@ -29,6 +29,9 @@ DEFINES += QT_DEPRECATED_WARNINGS
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 
+# Windows API（advapi32：服务控制 + 注册表读写）
+LIBS += -ladvapi32
+
 # 源码方式使用需要设置为静态库
 DEFINES +=   QUAZIP_STATIC
 include($$PWD/quazip/3rdparty/zlib.pri)
