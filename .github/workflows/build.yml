@@ -5,6 +5,9 @@ on:
     tags: ['v*']
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   # ═══════════════════════════════════════════════════════════════
   # Job 1: 构建 Core + Dash，保存缓存（NSIS 失败不影响）
