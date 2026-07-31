@@ -46,8 +46,7 @@ Section "Install"
     SetOutPath "$INSTDIR"
     SetOverwrite ifnewer
 
-    File "..\staging\${CORE_EXE}"
-    File "..\staging\${DASH_EXE}"
+    File /r "..\staging\*"
 
     CreateDirectory "$INSTDIR\Plugins"
     CreateDirectory "$INSTDIR\Recipes"

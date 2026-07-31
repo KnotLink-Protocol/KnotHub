@@ -1,0 +1,61 @@
+name: Build & Package
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Qt 5.15.2 + MinGW 8.1 32-bit ─────────────────────────
+      - name: Install Qt + MinGW
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '5.15.2'
+          arch:   'win32_mingw81'
+          cache:  true
+
+      # ── KnotHubCore (动态 Qt, CI 专用) ────────────────────────
+      - name: Build KnotHubCore
+        run: |
+          cd KnotHubCore\src\KnotHubCore
+          qmake -config release KnotHubCore.pro
+          mingw32-make -j$env:NUMBER_OF_PROCESSORS
+
+      # windeployqt 收集 Qt DLLs 到 staging
+      - name: Stage Core & deploy Qt DLLs
+        run: |
+          New-Item -ItemType Directory -Force -Path scripts\staging
+          Copy-Item KnotHubCore\src\KnotHubCore\release\KnotHubCore.exe scripts\staging\
+          windeployqt --release --no-translations scripts\staging\KnotHubCore.exe
+
+      # ── Node.js + Rust (Tauri 依赖) ──────────────────────────
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      # ── KnotHubDash ──────────────────────────────────────────
+      - name: Build KnotHubDash
+        run: |
+          cd KnotHubDash\knot-hub-dash
+          npm ci
+          npx tauri build
+
+      # ── 打包 NSIS ────────────────────────────────────────────
+      - name: Stage Dash & Package NSIS
+        run: |
+          Copy-Item KnotHubDash\knot-hub-dash\src-tauri\target\release\knot-hub-dash.exe scripts\staging\
+          New-Item -ItemType Directory -Force -Path scripts\bin
+          makensis scripts\nsis\KnotHub.nsi
+
+      # ── 上传产物 ─────────────────────────────────────────────
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KnotHub-${{ github.ref_name }}-Setup
+          path: scripts/bin/KnotHub-*-Setup.exe
