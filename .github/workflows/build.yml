@@ -44,6 +44,8 @@ jobs:
       - name: Build KnotHubCore
         shell: pwsh
         run: |
+          # 剔除系统自带 64 位 MinGW（C:\mingw64, C:\msys64），确保用 Qt 自带的 32 位 MinGW 8.1
+          $env:PATH = ($env:PATH -split ';' | Where-Object { $_ -notmatch '\\mingw64|\\msys64' }) -join ';'
           cd KnotHubCore\src\KnotHubCore
           qmake "CONFIG+=release" KnotHubCore.pro
           mingw32-make -j4
