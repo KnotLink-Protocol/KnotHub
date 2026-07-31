@@ -1,0 +1,179 @@
+/* ── 过滤栏 ────────────────────────────────────────────── */
+
+.filterBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.tagBtns {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.searchInput {
+  padding: 6px 12px;
+  border: 1px solid var(--border, #dee2e6);
+  border-radius: 6px;
+  background: var(--bg-card, #fff);
+  color: var(--text-primary, #212529);
+  font-size: 13px;
+  min-width: 180px;
+}
+
+.searchInput:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+/* ── 错误提示 ──────────────────────────────────────────── */
+
+.errorBox {
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: #fee2e2;
+  color: #dc2626;
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+/* ── 横行列表 ──────────────────────────────────────────── */
+
+.rowList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 12px;
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border, #dee2e6);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  min-height: 48px;
+}
+
+.row:hover {
+  border-color: #667eea;
+  box-shadow: 0 1px 8px rgba(102,126,234,0.15);
+}
+
+/* ── 图标 ───────────────────────────────────────────────── */
+
+.rowLogo {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--bg-body, #f8f9fa);
+}
+
+.placeholderIcon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+/* ── 信息区 ────────────────────────────────────────────── */
+
+.rowInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.rowName {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary, #212529);
+  white-space: nowrap;
+}
+
+.rowAuthor {
+  font-size: 12px;
+  color: #6c757d;
+  white-space: nowrap;
+}
+
+.rowDesc {
+  font-size: 12px;
+  color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── links 串联节点 ────────────────────────────────────── */
+
+.rowLinks {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  max-width: 200px;
+}
+
+.linkBadge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.linkOk {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.linkMissing {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+/* ── 安装按钮 ──────────────────────────────────────────── */
+
+.rowInstall {
+  flex-shrink: 0;
+}
+
+.installBtn {
+  flex-shrink: 0;
+  padding: 4px 14px;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.install {
+  background: #667eea;
+  color: #fff;
+}
+.install:hover { background: #5a6fd6; }
+
+.installing {
+  background: #e2e8f0;
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.installed {
+  background: #d1fae5;
+  color: #065f46;
+  cursor: default;
+}

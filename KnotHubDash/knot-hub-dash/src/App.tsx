@@ -141,6 +141,59 @@ function PreviewBar() {
             onInstalled={() => window.dispatchEvent(new CustomEvent('plugin-installed'))}
           />
         )}
+        {previewData?.type === 'recipe-store' && (
+          <div className="node-preview">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+              <span style={{ fontSize: 36 }}>{previewData.details?.recipe?.icon || '📜'}</span>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 16 }}>{previewData.details?.recipe?.name}</div>
+                <div style={{ fontSize: 12, color: '#6c757d' }}>
+                  {previewData.details?.recipe?.author} · {previewData.details?.recipe?.version}
+                </div>
+              </div>
+            </div>
+            <div className="preview-field" style={{ marginBottom: 12 }}>
+              {previewData.details?.recipe?.description}
+            </div>
+            {previewData.details?.recipe?.tags?.length > 0 && (
+              <div className="preview-field" style={{ marginBottom: 8, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                {previewData.details.recipe.tags.map((t: string) => (
+                  <span key={t} style={{
+                    fontSize: 11, padding: '2px 8px', borderRadius: 10,
+                    background: '#ede9fe', color: '#6d28d9',
+                  }}>{t}</span>
+                ))}
+              </div>
+            )}
+            <div className="preview-field" style={{ marginBottom: 8, fontSize: 13 }}>
+              <strong>串联节点</strong>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
+                {previewData.details?.recipe?.links?.map((link: any) => (
+                  <div key={link.app_id} style={{
+                    padding: '4px 8px', borderRadius: 6, fontSize: 12,
+                    background: '#f8f9fa', border: '1px solid #dee2e6',
+                  }}>
+                    <span style={{ fontWeight: 500 }}>{link.app_name}</span>
+                    <span style={{ color: '#6c757d', marginLeft: 8 }}>{link.role}</span>
+                    <span style={{ color: '#94a3b8', marginLeft: 8 }}>需要 ≥ {link.min_version}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="preview-field" style={{ fontSize: 12, color: '#6c757d' }}>
+              {previewData.details?.recipe?.created && (
+                <span>创建: {previewData.details.recipe.created} </span>
+              )}
+              {previewData.details?.recipe?.updated && (
+                <span>· 更新: {previewData.details.recipe.updated}</span>
+              )}
+            </div>
+            {previewData.details?.installed
+              ? <div style={{ padding: '6px 12px', borderRadius: 6, background: '#d1fae5', color: '#065f46', fontSize: 13 }}>✅ 已导入</div>
+              : <div style={{ padding: '6px 12px', borderRadius: 6, background: '#fff3cd', color: '#856404', fontSize: 13 }}>⬇️ 未导入 — 在配方市场中点击安装</div>
+            }
+          </div>
+        )}
       </div>
     </div>
   );

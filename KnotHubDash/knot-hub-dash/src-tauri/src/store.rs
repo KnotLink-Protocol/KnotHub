@@ -2,8 +2,6 @@ use serde::{Deserialize, Serialize};
 use tauri::ipc::Channel;
 use futures::StreamExt;
 use std::path::{Path, PathBuf};
-use std::process::Stdio;
-use tokio::process::Command;
 
 // ── 数据结构 ──────────────────────────────────────────────────
 
@@ -161,71 +159,13 @@ pub struct DownloadProgress {
     pub total: Option<u64>,
 }
 
-/// 查找 aria2c.exe：exe 同目录 → PATH
-fn find_aria2() -> Option<PathBuf> {
-    // 1. exe 同目录
-    if let Ok(exe) = std::env::current_exe() {
-        let dir = exe.parent().unwrap_or(Path::new("."));
-        let candidate = dir.join("aria2c.exe");
-        if candidate.exists() {
-            return Some(candidate);
-        }
-    }
-    // 2. PATH
-    if let Ok(path) = which::which("aria2c") {
-        return Some(path);
-    }
-    None
-}
-
-/// 用 aria2 下载，解析 stdout 中的 (XX%) 进度
-async fn aria2_download(
-    url: &str,
-    dest_dir: &Path,
-    dest_name: &str,
-    on_progress: Channel<DownloadProgress>,
-) -> Result<PathBuf, String> {
-    let aria2 = find_aria2().ok_or_else(|| "aria2c.exe 未找到".to_string())?;
-
-    let out_path = dest_dir.join(dest_name);
-    let mut child = Command::new(&aria2)
-        .args([
-            "--show-console-readout=true",
-            "--summary-interval=1",
-            "-x16", "-s16",
-            "--max-tries=3",
-            "--file-allocation=none",
-            "--allow-overwrite=true",
-            "--auto-file-renaming=false",
-            "-d", dest_dir.to_str().unwrap_or("."),
-            "-o", dest_name,
-            url,
-        ])
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
-        .kill_on_drop(true)
-        .spawn()
-        .map_err(|e| format!("启动 aria2 失败: {}", e))?;
-
-    let status = child.wait().await
-        .map_err(|e| format!("aria2 异常: {}", e))?;
-
-    if !status.success() {
-        return Err(format!(
-            "aria2 下载失败 (exit {})",
-            status.code().unwrap_or(-1)
-        ));
-    }
-
-    Ok(out_path)
-}
-
-/// 用 reqwest 流式下载（aria2 不可用时的回退方案）
+/// 用 reqwest 流式下载。check_zip 为 true 时验证 PK 头（插件 zip），false 时跳过（配方 .py/.kln）
 async fn reqwest_download(
     url: &str,
     dest_dir: &Path,
     dest_name: &str,
     on_progress: Channel<DownloadProgress>,
+    check_zip: bool,
 ) -> Result<PathBuf, String> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(120))
@@ -264,7 +204,7 @@ async fn reqwest_download(
         return Err("下载的文件为空".into());
     }
 
-    if bytes.len() < 4 || &bytes[0..4] != b"PK\x03\x04" {
+    if check_zip && (bytes.len() < 4 || &bytes[0..4] != b"PK\x03\x04") {
         let dump = std::env::temp_dir().join(format!("knothub_bad_{}.bin", std::process::id()));
         let _ = std::fs::write(&dump, &bytes);
         return Err(format!(
@@ -298,19 +238,8 @@ pub async fn download_and_install(
     let tmp_dir = std::env::temp_dir();
     let tmp_name = format!("knothub_dl_{}.zip", std::process::id());
 
-    // 2. 尝试 aria2 下载，失败回退 reqwest
-    eprintln!("[KnotHub] 尝试 aria2 下载: {}", download_url);
-    let aria2_result = aria2_download(&download_url, &tmp_dir, &tmp_name, on_progress.clone()).await;
-    let tmp_path = match aria2_result {
-        Ok(path) => {
-            eprintln!("[KnotHub] aria2 下载成功");
-            path
-        }
-        Err(aria2_err) => {
-            eprintln!("[KnotHub] aria2 失败: {}, 回退 reqwest", aria2_err);
-            reqwest_download(&download_url, &tmp_dir, &tmp_name, on_progress.clone()).await?
-        }
-    };
+    // 2. 下载
+    let tmp_path = reqwest_download(&download_url, &tmp_dir, &tmp_name, on_progress.clone(), true).await?;
 
     // 3. 安装
     let tmp_str = tmp_path.to_string_lossy().to_string();
@@ -346,6 +275,38 @@ pub async fn http_get_text(url: String) -> Result<String, String> {
     resp.text()
         .await
         .map_err(|e| format!("读取响应失败: {}", e))
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 命令：下载配方文件并导入
+// ═══════════════════════════════════════════════════════════════
+
+#[tauri::command]
+pub async fn download_and_import_recipe(
+    url: String,
+    on_progress: Channel<DownloadProgress>,
+) -> Result<(), String> {
+    let tmp_dir = std::env::temp_dir();
+    // 从 URL 提取文件名
+    let file_name = url.rsplit('/').next().unwrap_or("recipe.py");
+    let tmp_name = format!("knothub_recipe_{}", file_name);
+
+    // 下载
+    eprintln!("[KnotHub] 下载配方: {}", url);
+    let tmp_path = reqwest_download(&url, &tmp_dir, &tmp_name, on_progress.clone(), false).await?;
+
+    // 调 C++ RecipeManager 导入
+    let tmp_str = tmp_path.to_string_lossy().to_string();
+    let result = crate::nodes::recipe_query(&std::collections::HashMap::from([
+        ("cmd".to_string(), "import_recipe".to_string()),
+        ("source_path".to_string(), tmp_str),
+        ("target_dir".to_string(), "__root__".to_string()),
+        ("overwrite".to_string(), "false".to_string()),
+    ])).await;
+
+    // 清理
+    let _ = std::fs::remove_file(&tmp_path);
+    result.map(|_| ())
 }
 
 // ═══════════════════════════════════════════════════════════════

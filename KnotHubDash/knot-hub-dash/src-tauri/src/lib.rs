@@ -151,6 +151,7 @@ pub fn run() {
             // 插件市场
             store::fetch_store_index,
             store::download_and_install,
+            store::download_and_import_recipe,
             store::http_get_text,
             store::check_latest_version,
             // 独立命令

@@ -48,7 +48,6 @@ Section "Install"
 
     File "..\staging\${CORE_EXE}"
     File "..\staging\${DASH_EXE}"
-    File "..\staging\aria2c.exe"
 
     CreateDirectory "$INSTDIR\Plugins"
     CreateDirectory "$INSTDIR\Recipes"

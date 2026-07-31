@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import RecipeStoreTab from './RecipeStoreTab';
 import styles from './Interconnect.module.css';
 
 interface TreeNode {
@@ -11,11 +12,15 @@ interface TreeNode {
   status?: string;
 }
 
+type TabKey = 'tree' | 'store';
+
 export default function Interconnect() {
+  const [tab, setTab] = useState<TabKey>('tree');
   const [tree, setTree] = useState<TreeNode | null>(null);
   const [loading, setLoading] = useState(true);
   const [statusMap, setStatusMap] = useState<Record<string, string>>({});
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [installedAppIds] = useState<Map<string, string>>(new Map());
 
   // ── 拖拽状态 ──────────────────────────────────────────────
   const [dragOver, setDragOver] = useState(false);
@@ -36,6 +41,13 @@ export default function Interconnect() {
   }, []);
 
   useEffect(() => { loadTree(); }, [loadTree]);
+
+  // ── 监听配方安装事件 ──────────────────────────────────
+  useEffect(() => {
+    const handler = () => loadTree();
+    window.addEventListener('recipe-installed', handler);
+    return () => window.removeEventListener('recipe-installed', handler);
+  }, [loadTree]);
 
   // ── 拖拽事件 ────────────────────────────────────────────
   const handleDrop = useCallback(async (paths: string[]) => {
@@ -269,6 +281,35 @@ export default function Interconnect() {
         </p>
       </div>
 
+      {/* Tab 切换 */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        {(['tree', 'store'] as TabKey[]).map(k => (
+          <button
+            key={k}
+            className="btn"
+            style={{
+              background: tab === k ? '#667eea' : undefined,
+              color: tab === k ? '#fff' : undefined,
+            }}
+            onClick={() => setTab(k)}
+          >
+            {k === 'tree' ? '📂 本地配方' : '🏪 配方市场'}
+          </button>
+        ))}
+      </div>
+
+      {/* 配方市场 */}
+      {tab === 'store' && (
+        <RecipeStoreTab
+          installedAppIds={installedAppIds}
+          onInstalledChange={loadTree}
+        />
+      )}
+
+      {/* 本地配方树 */}
+      {tab !== 'store' && (
+      <>
+
       {/* 导入提示 */}
       {importMsg && (
         <div style={{
@@ -314,6 +355,7 @@ export default function Interconnect() {
         </div>
         {tree && renderTree(tree)}
       </div>
+      </>)}
     </>
   );
 }
