@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { openUrl } from '@tauri-apps/plugin-opener';
+import { downloadWithRetry } from '../lib/downloadWithRetry';
+import { subscribe, getDlState } from '../lib/downloadState';
 import styles from './StoreTab.module.css';
 
 // ── 数据结构（与 nodes-index.json 对齐）──────────────────
@@ -49,6 +51,10 @@ export default function StoreTab({ installedAppIds, onInstalledChange }: Props) 
   const [installingId, setInstallingId] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<'all' | 'plugin' | 'standalone'>('plugin');
   const [searchQuery, setSearchQuery] = useState('');
+  const [dl, setDl] = useState(getDlState());
+
+  // 订阅全局下载进度
+  useEffect(() => subscribe(() => setDl(getDlState())), []);
 
   // ── 拉取商店索引 ──────────────────────────────────────
 
@@ -110,7 +116,7 @@ export default function StoreTab({ installedAppIds, onInstalledChange }: Props) 
     }
     setInstallingId(p.id);
     try {
-      await invoke('download_and_install', { url: p.downloadUrl });
+      await downloadWithRetry(p.downloadUrl);
       onInstalledChange();
     } catch (err: any) {
       alert(`安装失败: ${err}`);
@@ -181,13 +187,20 @@ export default function StoreTab({ installedAppIds, onInstalledChange }: Props) 
       update: '⬆️ 更新',
     };
     const disabled = state === 'installing' || state === 'installed';
+    const showProgress = state === 'installing' && dl.downloading && dl.percent > 0;
     return (
       <button
         className={btnClass}
         disabled={disabled}
         onClick={(e) => { e.stopPropagation(); if (!disabled) handleInstall(p); }}
       >
-        {labels[state]}
+        {showProgress ? (
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            ⏳ {dl.percent}%
+            <progress value={dl.percent} max={100}
+              style={{ width: 48, height: 8, accentColor: '#667eea' }} />
+          </span>
+        ) : labels[state]}
       </button>
     );
   };

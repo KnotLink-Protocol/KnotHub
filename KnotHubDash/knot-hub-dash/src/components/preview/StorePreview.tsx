@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { openUrl } from '@tauri-apps/plugin-opener';
+import { downloadWithRetry } from '../../lib/downloadWithRetry';
+import { subscribe, getDlState } from '../../lib/downloadState';
 import { marked } from 'marked';
 
 const BASE_URL = 'https://knotlink.cn';
@@ -34,6 +36,10 @@ const StorePreview: React.FC<Props> = ({ plugin, installed, onInstalled }) => {
   const [funcList, setFuncList] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [installing, setInstalling] = useState(false);
+  const [dl, setDl] = useState(getDlState());
+
+  // 订阅全局下载进度
+  useEffect(() => subscribe(() => setDl(getDlState())), []);
 
   useEffect(() => {
     setReadme(null);
@@ -62,7 +68,7 @@ const StorePreview: React.FC<Props> = ({ plugin, installed, onInstalled }) => {
     if (!plugin.downloadUrl) return;
     setInstalling(true);
     try {
-      await invoke('download_and_install', { url: plugin.downloadUrl });
+      await downloadWithRetry(plugin.downloadUrl);
       onInstalled();
     } catch (err: any) {
       alert(`安装失败: ${err}`);
@@ -95,7 +101,7 @@ const StorePreview: React.FC<Props> = ({ plugin, installed, onInstalled }) => {
       )}
 
       {/* 安装 / 下载按钮 */}
-      <div style={{ marginBottom: 16 }}>
+      <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
         {plugin.type === 'standalone' ? (
           installed ? (
             <button disabled style={{
@@ -125,8 +131,15 @@ const StorePreview: React.FC<Props> = ({ plugin, installed, onInstalled }) => {
             <button disabled style={{
               padding: '6px 20px', border: 'none', borderRadius: 6,
               background: '#e2e8f0', color: '#94a3b8', fontSize: 13,
+              display: 'flex', alignItems: 'center', gap: 6,
             }}>
-              ⏳ 安装中...
+              {dl.downloading && dl.percent > 0 ? (
+                <>
+                  ⏳ {dl.percent}%
+                  <progress value={dl.percent} max={100}
+                    style={{ width: 48, height: 8, accentColor: '#667eea' }} />
+                </>
+              ) : '⏳ 安装中...'}
             </button>
           ) : (
             <button onClick={handleInstall} style={{
@@ -137,6 +150,16 @@ const StorePreview: React.FC<Props> = ({ plugin, installed, onInstalled }) => {
               ⬇️ 安装
             </button>
           )
+        )}
+        {/* GitHub 按钮（非独立式，有 downloadUrl 时显示） */}
+        {plugin.type !== 'standalone' && plugin.downloadUrl && (
+          <button onClick={() => openUrl(plugin.downloadUrl)} style={{
+            padding: '6px 12px', border: '1px solid var(--border)', borderRadius: 6,
+            background: 'transparent', color: '#666', fontSize: 12,
+            cursor: 'pointer',
+          }}>
+            🔗 GitHub
+          </button>
         )}
       </div>
 

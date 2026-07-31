@@ -1,4 +1,9 @@
 use serde::{Deserialize, Serialize};
+use tauri::ipc::Channel;
+use futures::StreamExt;
+use std::path::{Path, PathBuf};
+use std::process::Stdio;
+use tokio::process::Command;
 
 // ── 数据结构 ──────────────────────────────────────────────────
 
@@ -150,48 +155,169 @@ async fn resolve_download_url(url: &str) -> Result<String, String> {
 // 命令：下载 zip 并安装插件
 // ═══════════════════════════════════════════════════════════════
 
-#[tauri::command]
-pub async fn download_and_install(url: String) -> Result<(), String> {
-    // 1. 解析下载链接（支持 GitHub releases/latest → 真实下载地址）
-    let real_url = resolve_download_url(&url).await?;
+#[derive(Clone, serde::Serialize)]
+pub struct DownloadProgress {
+    pub downloaded: u64,
+    pub total: Option<u64>,
+}
 
-    // 2. 下载
+/// 查找 aria2c.exe：exe 同目录 → PATH
+fn find_aria2() -> Option<PathBuf> {
+    // 1. exe 同目录
+    if let Ok(exe) = std::env::current_exe() {
+        let dir = exe.parent().unwrap_or(Path::new("."));
+        let candidate = dir.join("aria2c.exe");
+        if candidate.exists() {
+            return Some(candidate);
+        }
+    }
+    // 2. PATH
+    if let Ok(path) = which::which("aria2c") {
+        return Some(path);
+    }
+    None
+}
+
+/// 用 aria2 下载，解析 stdout 中的 (XX%) 进度
+async fn aria2_download(
+    url: &str,
+    dest_dir: &Path,
+    dest_name: &str,
+    on_progress: Channel<DownloadProgress>,
+) -> Result<PathBuf, String> {
+    let aria2 = find_aria2().ok_or_else(|| "aria2c.exe 未找到".to_string())?;
+
+    let out_path = dest_dir.join(dest_name);
+    let mut child = Command::new(&aria2)
+        .args([
+            "--show-console-readout=true",
+            "--summary-interval=1",
+            "-x16", "-s16",
+            "--max-tries=3",
+            "--file-allocation=none",
+            "--allow-overwrite=true",
+            "--auto-file-renaming=false",
+            "-d", dest_dir.to_str().unwrap_or("."),
+            "-o", dest_name,
+            url,
+        ])
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .kill_on_drop(true)
+        .spawn()
+        .map_err(|e| format!("启动 aria2 失败: {}", e))?;
+
+    let status = child.wait().await
+        .map_err(|e| format!("aria2 异常: {}", e))?;
+
+    if !status.success() {
+        return Err(format!(
+            "aria2 下载失败 (exit {})",
+            status.code().unwrap_or(-1)
+        ));
+    }
+
+    Ok(out_path)
+}
+
+/// 用 reqwest 流式下载（aria2 不可用时的回退方案）
+async fn reqwest_download(
+    url: &str,
+    dest_dir: &Path,
+    dest_name: &str,
+    on_progress: Channel<DownloadProgress>,
+) -> Result<PathBuf, String> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(120))
         .build()
         .map_err(|e| format!("创建 HTTP 客户端失败: {}", e))?;
 
-    let response = client
-        .get(&real_url)
-        .send()
-        .await
-        .map_err(|e| format!("下载失败: {}", e))?;
+    let response = client.get(url).send().await
+        .map_err(|e| format!("网络请求失败，GitHub 可能无法访问: {}", e))?;
 
     if !response.status().is_success() {
         return Err(format!("HTTP {}", response.status()));
     }
 
-    let bytes = response
-        .bytes()
-        .await
-        .map_err(|e| format!("读取下载内容失败: {}", e))?;
+    let ct = response.headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    if ct.contains("text/html") {
+        return Err(format!("镜像返回了网页而非文件（Content-Type: {}），可能镜像已失效", ct));
+    }
+
+    let total = response.content_length();
+    let mut bytes = Vec::new();
+    let mut stream = response.bytes_stream();
+
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(|e| format!("下载中断: {}", e))?;
+        bytes.extend_from_slice(&chunk);
+        let _ = on_progress.send(DownloadProgress {
+            downloaded: bytes.len() as u64,
+            total,
+        });
+    }
 
     if bytes.is_empty() {
         return Err("下载的文件为空".into());
     }
 
-    // 3. 写临时文件
-    let tmp = std::env::temp_dir()
-        .join(format!("knothub_dl_{}.zip", std::process::id()));
-    std::fs::write(&tmp, &bytes)
+    if bytes.len() < 4 || &bytes[0..4] != b"PK\x03\x04" {
+        let dump = std::env::temp_dir().join(format!("knothub_bad_{}.bin", std::process::id()));
+        let _ = std::fs::write(&dump, &bytes);
+        return Err(format!(
+            "下载的文件不是有效 zip（可能镜像返回了错误页面）。\n已保存至: {}",
+            dump.display()
+        ));
+    }
+
+    let out_path = dest_dir.join(dest_name);
+    std::fs::write(&out_path, &bytes)
         .map_err(|e| format!("写入临时文件失败: {}", e))?;
 
-    // 4. 调已有 install_plugin
-    let tmp_str = tmp.to_string_lossy().to_string();
+    Ok(out_path)
+}
+
+#[tauri::command]
+pub async fn download_and_install(
+    url: String,
+    mirror_url: Option<String>,
+    on_progress: Channel<DownloadProgress>,
+) -> Result<(), String> {
+    // 1. 解析下载链接（GitHub API 直连，不走镜像）
+    let real_url = resolve_download_url(&url).await?;
+
+    // 1.5 如果指定了镜像，拼到真实下载 URL 前面
+    let download_url = match &mirror_url {
+        Some(prefix) if !prefix.is_empty() => format!("{}{}", prefix, real_url),
+        _ => real_url,
+    };
+
+    let tmp_dir = std::env::temp_dir();
+    let tmp_name = format!("knothub_dl_{}.zip", std::process::id());
+
+    // 2. 尝试 aria2 下载，失败回退 reqwest
+    eprintln!("[KnotHub] 尝试 aria2 下载: {}", download_url);
+    let aria2_result = aria2_download(&download_url, &tmp_dir, &tmp_name, on_progress.clone()).await;
+    let tmp_path = match aria2_result {
+        Ok(path) => {
+            eprintln!("[KnotHub] aria2 下载成功");
+            path
+        }
+        Err(aria2_err) => {
+            eprintln!("[KnotHub] aria2 失败: {}, 回退 reqwest", aria2_err);
+            reqwest_download(&download_url, &tmp_dir, &tmp_name, on_progress.clone()).await?
+        }
+    };
+
+    // 3. 安装
+    let tmp_str = tmp_path.to_string_lossy().to_string();
     let result = crate::nodes::install_plugin(tmp_str).await;
 
-    // 5. 清理临时文件
-    let _ = std::fs::remove_file(&tmp);
+    // 4. 清理
+    let _ = std::fs::remove_file(&tmp_path);
 
     result
 }

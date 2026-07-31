@@ -2,7 +2,7 @@
 ; User-level install, no admin required.
 
 !define PRODUCT_NAME        "KnotHub"
-!define PRODUCT_VERSION      "0.2.0.0"
+!define PRODUCT_VERSION      "0.2.1.0"
 !define PRODUCT_PUBLISHER    "KnotLink"
 !define CORE_EXE             "KnotHubCore.exe"
 !define DASH_EXE             "knot-hub-dash.exe"
@@ -11,9 +11,14 @@
 
 !include "MUI2.nsh"
 !include "FileFunc.nsh"
+!include "nsDialogs.nsh"
+
+Var KLS_FOUND
+Var KLS_VER
 
 !define MUI_ABORTWARNING
 !insertmacro MUI_PAGE_WELCOME
+Page custom KlsCheckPage KlsCheckLeave
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
@@ -43,6 +48,7 @@ Section "Install"
 
     File "..\staging\${CORE_EXE}"
     File "..\staging\${DASH_EXE}"
+    File "..\staging\aria2c.exe"
 
     CreateDirectory "$INSTDIR\Plugins"
     CreateDirectory "$INSTDIR\Recipes"
@@ -102,6 +108,54 @@ Var UNINST_PROG
 Var OLD_VER
 Var OLD_PATH
 
+!define KLS_UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\KnotLinkService"
+
+; ── 自定义页面：检测 KnotLinkService ──────────────────────────
+Function KlsCheckPage
+    !insertmacro MUI_HEADER_TEXT "环境检测" "检查必要组件"
+
+    ClearErrors
+    ReadRegStr $KLS_VER HKLM "${KLS_UNINST_KEY}" "DisplayVersion"
+    IfErrors 0 kls_yes
+    StrCpy $KLS_FOUND "0"
+    Goto show_page
+kls_yes:
+    StrCpy $KLS_FOUND "1"
+
+show_page:
+    nsDialogs::Create 1018
+    Pop $0
+    ${If} $KLS_FOUND == "1"
+        ${NSD_CreateLabel} 0 20 100% 24 "✅ 已安装 KnotLinkService（版本 $KLS_VER）"
+        Pop $0
+        ${NSD_CreateLabel} 0 60 100% 40 "KnotLink 通信总线服务已就绪，KnotHub 可以正常使用。$\n点击「下一步」继续安装。"
+        Pop $0
+    ${Else}
+        ${NSD_CreateLabel} 0 20 100% 24 "⚠ 未检测到 KnotLinkService"
+        Pop $0
+        ${NSD_CreateLabel} 0 60 100% 60 "KnotLinkService 是 KnotLink 通信总线，KnotHub 的所有功能都依赖它。$\n$\n点击「下一步」表示你已知晓风险，仍要继续安装。"
+        Pop $0
+        ${NSD_CreateLink} 0 130 100% 16 "🔗 下载 KnotLinkService（GitHub Releases）"
+        Pop $0
+        ${NSD_OnClick} $0 OpenKLSLink
+    ${EndIf}
+    nsDialogs::Show
+FunctionEnd
+
+Function OpenKLSLink
+    ExecShell "open" "https://github.com/KnotLink-Protocol/KnotLinkService/releases"
+FunctionEnd
+
+Function KlsCheckLeave
+    ${If} $KLS_FOUND == "0"
+        MessageBox MB_YESNO|MB_ICONEXCLAMATION \
+            "确定要在没有 KnotLinkService 的情况下继续安装吗？$\n$\nKnotHub 将无法正常工作。" \
+            /SD IDNO IDYES +2
+        Abort
+    ${EndIf}
+FunctionEnd
+
+; ── .onInit：检测已有 KnotHub ────────────────────────────────
 Function .onInit
     ClearErrors
     ReadRegStr $UNINST_PROG HKCU "${UNINST_KEY}" "UninstallString"
@@ -109,7 +163,7 @@ Function .onInit
 
     ReadRegStr $OLD_VER HKCU "${UNINST_KEY}" "DisplayVersion"
     MessageBox MB_YESNOCANCEL|MB_ICONQUESTION \
-        "Detected ${PRODUCT_NAME} $OLD_VER is already installed.$\n$\nUninstall the existing version?" \
+        "已检测到 ${PRODUCT_NAME} $OLD_VER。$\n$\n是否卸载已有版本？" \
         /SD IDYES IDYES uninstall IDNO done
     Abort
 

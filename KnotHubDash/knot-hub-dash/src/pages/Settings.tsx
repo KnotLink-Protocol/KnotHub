@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { openUrl } from '@tauri-apps/plugin-opener';
+import { getSettings, saveSettings, MIRROR_PRESETS, DownloadMode } from '../lib/downloadSettings';
 
 interface UpdateInfo {
   current: string;
@@ -16,6 +17,11 @@ export default function Settings() {
   const [checking, setChecking] = useState(true);
   const [update, setUpdate] = useState<UpdateInfo | null>(null);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
+
+  // 下载设置
+  const [dlMode, setDlMode] = useState<DownloadMode>('ask');
+  const [mirrorUrl, setMirrorUrl] = useState(MIRROR_PRESETS[0].url);
+  const [mirrorPreset, setMirrorPreset] = useState(MIRROR_PRESETS[0].url);
 
   const knotlinkPorts = [
     { port: '6378', service: 'OpenSocket', label: '回答者注册' },
@@ -59,7 +65,19 @@ export default function Settings() {
       }
     })();
     checkUpdate();
+
+    // 加载下载设置
+    const ds = getSettings();
+    setDlMode(ds.mode);
+    setMirrorUrl(ds.mirrorUrl);
+    const match = MIRROR_PRESETS.find(p => p.url === ds.mirrorUrl);
+    setMirrorPreset(match ? match.url : '__custom__');
   }, []);
+
+  // 下载设置变更时保存
+  useEffect(() => {
+    saveSettings({ mode: dlMode, mirrorUrl });
+  }, [dlMode, mirrorUrl]);
 
   const toggleAutostart = async () => {
     try {
@@ -133,6 +151,50 @@ export default function Settings() {
           <div style={{ marginTop: 4, fontSize: 12 }}>
             均位于 KnotHubCore.exe 所在目录下
           </div>
+        </div>
+      </div>
+
+      {/* 下载设置 */}
+      <div className="section" style={{ marginBottom: 16 }}>
+        <div className="section-header">
+          <div className="section-title">下载设置</div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div>
+            <div style={{ fontWeight: 500, marginBottom: 6 }}>插件下载方式</div>
+            {([
+              ['direct', '直连', '直接从 GitHub 下载'],
+              ['mirror', '镜像加速', '始终通过镜像站下载'],
+              ['ask', '询问', '下载失败时弹出选择'],
+            ] as const).map(([mode, label, desc]) => (
+              <label key={mode} style={{ display: 'block', marginBottom: 4, cursor: 'pointer' }}>
+                <input type="radio" name="dlMode" value={mode}
+                  checked={dlMode === mode} onChange={() => setDlMode(mode as DownloadMode)} />
+                {' '}{label}
+                <span style={{ color: '#6c757d', fontSize: 12, marginLeft: 4 }}>（{desc}）</span>
+              </label>
+            ))}
+          </div>
+          {dlMode !== 'direct' && (
+            <div>
+              <div style={{ fontWeight: 500, marginBottom: 4 }}>镜像地址</div>
+              <select value={mirrorPreset} onChange={e => {
+                setMirrorPreset(e.target.value);
+                if (e.target.value !== '__custom__') setMirrorUrl(e.target.value);
+              }} style={{ padding: '4px 8px', border: '1px solid var(--border)', borderRadius: 4, marginRight: 8 }}>
+                {MIRROR_PRESETS.map(p => (
+                  <option key={p.url} value={p.url}>{p.label} — {p.url}</option>
+                ))}
+                <option value="__custom__">自定义…</option>
+              </select>
+              {mirrorPreset === '__custom__' && (
+                <input value={mirrorUrl} onChange={e => setMirrorUrl(e.target.value)}
+                  placeholder="https://example.com/"
+                  style={{ width: '100%', maxWidth: 400, padding: '4px 8px',
+                           border: '1px solid var(--border)', borderRadius: 4, marginTop: 6 }} />
+              )}
+            </div>
+          )}
         </div>
       </div>
 
