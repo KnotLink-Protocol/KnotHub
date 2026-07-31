@@ -32,30 +32,30 @@ jobs:
 
           Write-Host 'Version injected successfully.'
 
-      # ── Qt 5.15.2 + MinGW 8.1 32-bit ─────────────────────────
-      - name: Install Qt + MinGW
-        uses: jurplel/install-qt-action@v4
+      # ── MSYS2 MinGW 32-bit + Qt5（隔离环境，不碰系统 PATH）───
+      - uses: msys2/setup-msys2@v2
         with:
-          version: '5.15.2'
-          arch:   'win32_mingw81'
-          cache:  true
+          msystem: mingw32
+          install: >-
+            mingw-w64-i686-qt5
+            mingw-w64-i686-gcc
+            mingw-w64-i686-make
 
       # ── KnotHubCore (动态 Qt, CI 专用) ────────────────────────
       - name: Build KnotHubCore
-        shell: pwsh
+        shell: msys2 {0}
         run: |
-          # 剔除系统自带 64 位 MinGW（C:\mingw64, C:\msys64），确保用 Qt 自带的 32 位 MinGW 8.1
-          $env:PATH = ($env:PATH -split ';' | Where-Object { $_ -notmatch '\\mingw64|\\msys64' }) -join ';'
-          cd KnotHubCore\src\KnotHubCore
+          cd KnotHubCore/src/KnotHubCore
           qmake "CONFIG+=release" KnotHubCore.pro
           mingw32-make -j4
 
       # windeployqt 收集 Qt DLLs 到 staging
       - name: Stage Core & deploy Qt DLLs
+        shell: msys2 {0}
         run: |
-          New-Item -ItemType Directory -Force -Path scripts\staging
-          Copy-Item KnotHubCore\src\KnotHubCore\release\KnotHubCore.exe scripts\staging\
-          windeployqt --release --no-translations scripts\staging\KnotHubCore.exe
+          mkdir -p scripts/staging
+          cp KnotHubCore/src/KnotHubCore/release/KnotHubCore.exe scripts/staging/
+          windeployqt --release --no-translations scripts/staging/KnotHubCore.exe
 
       # ── Node.js + Rust (Tauri 依赖) ──────────────────────────
       - uses: actions/setup-node@v4
