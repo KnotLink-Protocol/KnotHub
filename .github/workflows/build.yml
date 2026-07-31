@@ -75,6 +75,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: 'KnotHubDash/knot-hub-dash/src-tauri'
+          save-if: 'true'
 
       # ── KnotHubDash ──────────────────────────────────────────
       - name: Build KnotHubDash
