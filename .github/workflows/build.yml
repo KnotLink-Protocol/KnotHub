@@ -83,12 +83,12 @@ jobs:
           npm ci
           npx tauri build
 
-      # ── 打包 NSIS ────────────────────────────────────────────
-      - name: Install NSIS
-        run: choco install nsis --no-progress -y
-
-      - name: Stage Dash & Package NSIS
+      # ── 打包 NSIS（安装+打包合一步，确保 PATH 刷新）─────────
+      - name: Install NSIS & Package
         run: |
+          choco install nsis --no-progress -y
+          Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1" -ErrorAction SilentlyContinue
+          refreshenv
           Copy-Item KnotHubDash\knot-hub-dash\src-tauri\target\release\knot-hub-dash.exe scripts\staging\
           New-Item -ItemType Directory -Force -Path scripts\bin
           makensis scripts\nsis\KnotHub.nsi
