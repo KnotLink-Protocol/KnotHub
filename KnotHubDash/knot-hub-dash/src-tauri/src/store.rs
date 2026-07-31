@@ -2,6 +2,11 @@ use serde::{Deserialize, Serialize};
 use tauri::ipc::Channel;
 use futures::StreamExt;
 use std::path::{Path, PathBuf};
+use crate::knotlink_lib::{OpenSocketQuerier, SignalSubscriber};
+use tokio::time::{self, Duration};
+
+const MD_APPID: &str = "com.knotlink.multidownload";
+const MD_SOCKET: &str = "download";
 
 // ── 数据结构 ──────────────────────────────────────────────────
 
@@ -220,11 +225,111 @@ async fn reqwest_download(
     Ok(out_path)
 }
 
+/// 通过 MultiDownload KL 节点下载
+async fn download_via_md(
+    url: &str,
+    dest_dir: &Path,
+    dest_name: &str,
+    on_progress: Channel<DownloadProgress>,
+) -> Result<PathBuf, String> {
+    let req_id = uuid::Uuid::new_v4().to_string();
+    let dest_path = dest_dir.join(dest_name);
+    let dest_str = dest_path.to_string_lossy().to_string();
+
+    // 订阅信号
+    let mut sub_progress = SignalSubscriber::new(
+        MD_APPID.to_string(), "progress".to_string()
+    ).await.map_err(|e| format!("订阅 progress 失败: {}", e))?;
+
+    let mut sub_completed = SignalSubscriber::new(
+        MD_APPID.to_string(), "completed".to_string()
+    ).await.map_err(|e| format!("订阅 completed 失败: {}", e))?;
+
+    let mut sub_failed = SignalSubscriber::new(
+        MD_APPID.to_string(), "failed".to_string()
+    ).await.map_err(|e| format!("订阅 failed 失败: {}", e))?;
+
+    // 发送下载请求
+    let querier = OpenSocketQuerier::new(
+        "0x00000002".to_string(), "md-check".to_string()
+    ).await.map_err(|e| format!("连接 MultiDownload 失败: {}", e))?;
+
+    let payload = format!(
+        "cmd=start;url={};dest={};reqID={};threads=8",
+        url, dest_str, req_id
+    );
+    let resp = querier.query_l(
+        payload, MD_APPID, MD_SOCKET,
+        Some(Duration::from_secs(5)),
+    ).await.map_err(|e| format!("请求 MultiDownload 失败: {}", e))?;
+
+    if resp.trim() != "OK" {
+        return Err(format!("MultiDownload 拒绝请求: {}", resp));
+    }
+    drop(querier);
+
+    // 等待完成信号
+    let timeout = Duration::from_secs(3600);
+    let deadline = time::sleep(timeout);
+    tokio::pin!(deadline);
+
+    loop {
+        tokio::select! {
+            msg = sub_progress.rx.recv() => {
+                if let Some(data) = msg {
+                    if data.contains(&format!("reqID={}", req_id)) {
+                        // 解析 percent
+                        if let Some(pct) = parse_kv(&data, "percent") {
+                            let pct: u64 = pct.parse().unwrap_or(0);
+                            let _ = on_progress.send(DownloadProgress {
+                                downloaded: pct,
+                                total: Some(100),
+                            });
+                        }
+                    }
+                }
+            }
+            msg = sub_completed.rx.recv() => {
+                if let Some(data) = msg {
+                    if data.contains(&format!("reqID={}", req_id)) {
+                        if dest_path.exists() {
+                            return Ok(dest_path);
+                        }
+                        return Err("下载完成但文件不存在".to_string());
+                    }
+                }
+            }
+            msg = sub_failed.rx.recv() => {
+                if let Some(data) = msg {
+                    if data.contains(&format!("reqID={}", req_id)) {
+                        let err = parse_kv(&data, "error").unwrap_or("未知错误".to_string());
+                        return Err(format!("MultiDownload 下载失败: {}", err));
+                    }
+                }
+            }
+            _ = &mut deadline => {
+                return Err("下载超时".to_string());
+            }
+        }
+    }
+}
+
+/// 从 KLKVMap 字符串中解析值
+fn parse_kv(data: &str, key: &str) -> Option<String> {
+    for pair in data.split(';') {
+        if let Some((k, v)) = pair.split_once('=') {
+            if k == key { return Some(v.to_string()); }
+        }
+    }
+    None
+}
+
 #[tauri::command]
 pub async fn download_and_install(
     url: String,
     mirror_url: Option<String>,
     on_progress: Channel<DownloadProgress>,
+    use_md: Option<bool>,
 ) -> Result<(), String> {
     // 1. 解析下载链接（GitHub API 直连，不走镜像）
     let real_url = resolve_download_url(&url).await?;
@@ -238,7 +343,20 @@ pub async fn download_and_install(
     let tmp_dir = std::env::temp_dir();
     let tmp_name = format!("knothub_dl_{}.zip", std::process::id());
 
-    // 2. 下载
+    // 2. 尝试 MultiDownload（如果启用且在线）
+    if use_md.unwrap_or(false) {
+        match download_via_md(&download_url, &tmp_dir, &tmp_name, on_progress.clone()).await {
+            Ok(path) => {
+                let tmp_str = path.to_string_lossy().to_string();
+                let result = crate::nodes::install_plugin(tmp_str).await;
+                let _ = std::fs::remove_file(&path);
+                return result;
+            }
+            Err(e) => eprintln!("[KnotHub] MultiDownload 失败: {}, 回退 reqwest", e),
+        }
+    }
+
+    // 3. reqwest 下载
     let tmp_path = reqwest_download(&download_url, &tmp_dir, &tmp_name, on_progress.clone(), true).await?;
 
     // 3. 安装

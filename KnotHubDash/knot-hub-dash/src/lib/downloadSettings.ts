@@ -3,6 +3,7 @@ export type DownloadMode = 'direct' | 'mirror' | 'ask';
 export interface DownloadSettings {
   mode: DownloadMode;
   mirrorUrl: string;
+  useMultiDownload: boolean;
 }
 
 // 预设镜像列表
@@ -20,7 +21,7 @@ export function getSettings(): DownloadSettings {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return JSON.parse(raw);
   } catch {}
-  return { mode: 'ask', mirrorUrl: DEFAULT_MIRROR };
+  return { mode: 'ask', mirrorUrl: DEFAULT_MIRROR, useMultiDownload: false };
 }
 
 export function saveSettings(s: DownloadSettings) {

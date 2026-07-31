@@ -11,7 +11,11 @@ export async function downloadWithRetry(url: string): Promise<void> {
     const channel = new Channel<{ downloaded: number; total: number | null }>((msg) => {
       updateProgress(msg.downloaded, msg.total);
     });
-    await invoke('download_and_install', { url, mirrorUrl, onProgress: channel });
+    await invoke('download_and_install', {
+      url, mirrorUrl,
+      onProgress: channel,
+      useMd: settings.useMultiDownload,
+    });
   };
 
   startDownload();

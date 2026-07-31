@@ -22,6 +22,7 @@ export default function Settings() {
   const [dlMode, setDlMode] = useState<DownloadMode>('ask');
   const [mirrorUrl, setMirrorUrl] = useState(MIRROR_PRESETS[0].url);
   const [mirrorPreset, setMirrorPreset] = useState(MIRROR_PRESETS[0].url);
+  const [useMD, setUseMD] = useState(false);
 
   const knotlinkPorts = [
     { port: '6378', service: 'OpenSocket', label: '回答者注册' },
@@ -70,14 +71,15 @@ export default function Settings() {
     const ds = getSettings();
     setDlMode(ds.mode);
     setMirrorUrl(ds.mirrorUrl);
+    setUseMD(ds.useMultiDownload);
     const match = MIRROR_PRESETS.find(p => p.url === ds.mirrorUrl);
     setMirrorPreset(match ? match.url : '__custom__');
   }, []);
 
   // 下载设置变更时保存
   useEffect(() => {
-    saveSettings({ mode: dlMode, mirrorUrl });
-  }, [dlMode, mirrorUrl]);
+    saveSettings({ mode: dlMode, mirrorUrl, useMultiDownload: useMD });
+  }, [dlMode, mirrorUrl, useMD]);
 
   const toggleAutostart = async () => {
     try {
@@ -195,6 +197,27 @@ export default function Settings() {
               )}
             </div>
           )}
+          {/* MultiDownload 开关 */}
+          <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ fontWeight: 500 }}>MultiDownload 多线程下载</div>
+              <div style={{ color: '#6c757d', fontSize: 12 }}>
+                使用 MultiDownload 插件进行多线程下载（需安装插件）
+              </div>
+            </div>
+            <button
+              className="btn btn-sm"
+              onClick={() => setUseMD(!useMD)}
+              style={{
+                background: useMD ? '#667eea' : '#ddd',
+                color: useMD ? '#fff' : '#666',
+                border: 'none', borderRadius: 14,
+                padding: '4px 16px', cursor: 'pointer', fontWeight: 500,
+              }}
+            >
+              {useMD ? '已开启 ✓' : '已关闭 ✗'}
+            </button>
+          </div>
         </div>
       </div>
 
