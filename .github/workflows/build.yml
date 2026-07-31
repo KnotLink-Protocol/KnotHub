@@ -11,6 +11,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # ── 从 tag 注入版本号到三处元数据 ────────────────────────
+      #     tag v0.3.0 → .pro: 0.3.0.0 / tauri: 0.3.0 / nsi: 0.3.0.0
+      - name: Inject version from tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          $v3 = "${{ github.ref_name }}" -replace '^v',''
+          $v4 = "$v3.0"
+          Write-Host "Injecting version: $v3 (3-seg) / $v4 (4-seg)"
+
+          $pro = 'KnotHubCore\src\KnotHubCore\KnotHubCore.pro'
+          (Get-Content $pro) -replace 'VERSION = .*', "VERSION = $v4" | Set-Content $pro
+
+          $tauri = 'KnotHubDash\knot-hub-dash\src-tauri\tauri.conf.json'
+          (Get-Content $tauri) -replace '"version":\s*"[^"]*"', "`"version`": `"$v3`"" | Set-Content $tauri
+
+          $nsi = 'scripts\nsis\KnotHub.nsi'
+          (Get-Content $nsi) -replace '!define PRODUCT_VERSION\s+".*"', "!define PRODUCT_VERSION `"$v4`"" | Set-Content $nsi
+
+          Write-Host 'Version injected successfully.'
+
       # ── Qt 5.15.2 + MinGW 8.1 32-bit ─────────────────────────
       - name: Install Qt + MinGW
         uses: jurplel/install-qt-action@v4
