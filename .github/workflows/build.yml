@@ -42,10 +42,11 @@ jobs:
 
       # ── KnotHubCore (动态 Qt, CI 专用) ────────────────────────
       - name: Build KnotHubCore
+        shell: pwsh
         run: |
           cd KnotHubCore\src\KnotHubCore
           qmake "CONFIG+=release" KnotHubCore.pro
-          mingw32-make -j$env:NUMBER_OF_PROCESSORS
+          mingw32-make -j4
 
       # windeployqt 收集 Qt DLLs 到 staging
       - name: Stage Core & deploy Qt DLLs
