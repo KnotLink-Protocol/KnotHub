@@ -84,6 +84,9 @@ jobs:
           npx tauri build
 
       # ── 打包 NSIS ────────────────────────────────────────────
+      - name: Install NSIS
+        run: choco install nsis --no-progress -y
+
       - name: Stage Dash & Package NSIS
         run: |
           Copy-Item KnotHubDash\knot-hub-dash\src-tauri\target\release\knot-hub-dash.exe scripts\staging\
