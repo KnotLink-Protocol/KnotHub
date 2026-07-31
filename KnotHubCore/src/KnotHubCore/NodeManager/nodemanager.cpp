@@ -416,8 +416,35 @@ bool PluginManager::installPlugin(const QString &zipPath, QString &error)
         pluginName = fi.completeBaseName();
     }
 
-    // 3. 解压到 Plugins/<plugin_name>/
+    // 3. 如果同名插件已在运行，先停止
+    //    （否则 Windows 会锁住正在运行的 exe，导致覆盖失败）
     QString destDir = m_pluginsRoot + "/" + pluginName;
+    bool wasRunning = false;
+    bool wasAutoStart = false;
+
+    // 查找是否有已注册的插件指向同一目录
+    QString existingName;
+    for (auto it = m_pluginInfos.begin(); it != m_pluginInfos.end(); ++it) {
+        if (QDir::cleanPath(it->folderPath) == QDir::cleanPath(destDir)) {
+            existingName = it.key();
+            wasRunning = isPluginRunning(existingName);
+            wasAutoStart = it->autoStart;
+            break;
+        }
+    }
+
+    if (wasRunning) {
+        qDebug() << "[Plugin] Stopping running plugin before install:" << existingName;
+        stopPlugin(existingName);
+        // 移除旧 loader，让 refreshPluginList 创建新的
+        removeLoader(existingName);
+    }
+
+    // 4. 解压到 Plugins/<plugin_name>/
+    //    先删除旧目录（确保不会残留旧文件，也避免 exe 被锁导致的静默失败）
+    if (QDir(destDir).exists()) {
+        QDir(destDir).removeRecursively();
+    }
     QDir().mkpath(destDir);
 
     // 把临时目录里所有文件复制到目标目录
@@ -429,11 +456,15 @@ bool PluginManager::installPlugin(const QString &zipPath, QString &error)
         if (QFileInfo(src).isDir()) {
             copyDirRecursive(src, dest);
         } else {
-            QFile::copy(src, dest);
+            if (!QFile::copy(src, dest)) {
+                error = QString("Failed to copy file: %1").arg(f);
+                qWarning() << "[Plugin] install: copy failed:" << src << "→" << dest;
+                return false;
+            }
         }
     }
 
-    // 4. 验证：目标目录必须有 plugin_manifest.json
+    // 5. 验证：目标目录必须有 plugin_manifest.json
     QString finalManifest = destDir + "/plugin_manifest.json";
     if (!QFile::exists(finalManifest)) {
         error = "Installed but no plugin_manifest.json found — "
@@ -441,8 +472,15 @@ bool PluginManager::installPlugin(const QString &zipPath, QString &error)
         return false;
     }
 
-    // 5. 刷新列表
+    // 6. 刷新列表（重新发现插件、创建 loader）
     refreshPluginList();
+
+    // 7. 如果之前是运行状态或配置了自启，重新启动
+    if (wasRunning || wasAutoStart) {
+        qDebug() << "[Plugin] Restarting after install (wasRunning="
+                 << wasRunning << ", wasAutoStart=" << wasAutoStart << ")";
+        startPlugin(existingName.isEmpty() ? pluginName : existingName);
+    }
 
     qDebug() << "[Plugin] Installed:" << pluginName << "from" << zipPath;
     return true;
