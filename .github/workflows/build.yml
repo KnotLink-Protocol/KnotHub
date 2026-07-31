@@ -127,10 +127,10 @@ jobs:
       - name: Install NSIS & Package
         run: |
           choco install nsis --no-progress -y
-          Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1" -ErrorAction SilentlyContinue
-          refreshenv
           New-Item -ItemType Directory -Force -Path scripts\bin
-          makensis scripts\nsis\KnotHub.nsi
+          $nsisDir = Resolve-Path "C:\Program Files (x86)\NSIS\*"
+          $makensis = Get-ChildItem $nsisDir -Recurse -Filter makensis.exe | Select-Object -First 1
+          & $makensis.FullName scripts\nsis\KnotHub.nsi
 
       # 上传安装包
       - uses: actions/upload-artifact@v4
