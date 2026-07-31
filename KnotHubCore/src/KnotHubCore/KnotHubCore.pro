@@ -11,7 +11,7 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 TARGET = KnotHubCore
 TEMPLATE = app
 
-VERSION = 0.2.0.0
+VERSION = 0.2.1.0
 QMAKE_TARGET_COMPANY    = HXH
 QMAKE_TARGET_PRODUCT    = KnotHubCore
 QMAKE_TARGET_DESCRIPTION = KnotHub 服务中枢 — 插件/配方编排引擎
