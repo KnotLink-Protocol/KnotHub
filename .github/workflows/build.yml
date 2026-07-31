@@ -62,7 +62,19 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Cache npm
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-${{ runner.os }}-${{ hashFiles('KnotHubDash/knot-hub-dash/package-lock.json') }}
+          restore-keys: npm-${{ runner.os }}-
+
       - uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: 'KnotHubDash/knot-hub-dash/src-tauri'
 
       # ── KnotHubDash ──────────────────────────────────────────
       - name: Build KnotHubDash
