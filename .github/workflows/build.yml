@@ -32,31 +32,30 @@ jobs:
 
           Write-Host 'Version injected successfully.'
 
-      # ── MSYS2 MinGW 32-bit + Qt5（隔离环境，不碰系统 PATH）───
-      - uses: msys2/setup-msys2@v2
+      # ── MSVC 编译器 + Qt 5.15.2（不用 MinGW，零冲突）─────────
+      - uses: ilammy/msvc-dev-cmd@v1
         with:
-          msystem: mingw32
-          update: true
-          install: >-
-            mingw-w64-i686-qt5
-            mingw-w64-i686-gcc
-            mingw-w64-i686-make
+          arch: amd64
 
-      # ── KnotHubCore (动态 Qt, CI 专用) ────────────────────────
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: '5.15.2'
+          arch:   'win64_msvc2019_64'
+          cache:  true
+
+      # ── KnotHubCore（MSVC + 动态 Qt）────────────────────────
       - name: Build KnotHubCore
-        shell: msys2 {0}
         run: |
-          cd KnotHubCore/src/KnotHubCore
+          cd KnotHubCore\src\KnotHubCore
           qmake "CONFIG+=release" KnotHubCore.pro
-          mingw32-make -j4
+          nmake
 
       # windeployqt 收集 Qt DLLs 到 staging
       - name: Stage Core & deploy Qt DLLs
-        shell: msys2 {0}
         run: |
-          mkdir -p scripts/staging
-          cp KnotHubCore/src/KnotHubCore/release/KnotHubCore.exe scripts/staging/
-          windeployqt --release --no-translations scripts/staging/KnotHubCore.exe
+          New-Item -ItemType Directory -Force -Path scripts\staging
+          Copy-Item KnotHubCore\src\KnotHubCore\release\KnotHubCore.exe scripts\staging\
+          windeployqt --release --no-translations scripts\staging\KnotHubCore.exe
 
       # ── Node.js + Rust (Tauri 依赖) ──────────────────────────
       - uses: actions/setup-node@v4
